@@ -42,5 +42,6 @@ with open(path) as file:
         type = fields[3]
         content = fields[4]
         ttl = fields[5]
-        print (name, ttl, 'IN', type, content)
+        get_list =  (name + '.', ttl, 'IN', type, content)
+        print " ".join(get_list)
 
