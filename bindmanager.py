@@ -51,4 +51,77 @@ with open(path) as file:
         content = fields[4]
         ttl = fields[5]
         get_list =  (name + '.', ttl, 'IN', type, content)
-        print " ".join(get_list)
+#        print " ".join(get_list)
+
+with open(path) as file:
+    for line in nonblank_lines(file):
+        if "SOA" in line:
+           fields = line.strip().split()
+           name = fields[2]
+           type = fields[3]
+           content = fields[4]
+           admin = fields[5]
+           serial = fields[6]
+           refresh = fields[7]
+           retry = fields[8]
+           expire = fields[9]
+           minimum = fields[10]
+           ttl = fields[11]
+           get_soa =  (name + '.', ttl, 'IN', type, content, admin, serial, refresh, retry, expire, minimum)
+           mysoa = " ".join(get_soa)
+           print mysoa
+        if "NS" in line:
+           fields = line.strip().split()
+           name = fields[2]
+           type = fields[3]
+           content = fields[4]
+           get_ns =  (name + '.', ttl, 'IN', type, content + '.')
+           myns = " ".join(get_ns)
+           # List NS record
+           try:
+             myns
+           except NameError:
+             print "; well, it WASN'T defined after all!"
+           else:
+             print myns
+        if "MX" in line:
+           fields = line.strip().split()
+           name = fields[2]
+           type = fields[3]
+           content = fields[4]
+           get_mx =  (name + '.', ttl, 'IN', type, content)
+           # List MX record
+           try:
+             mymx
+           except NameError:
+             print "; well, it WASN'T defined after all!"
+           else:
+             print mymx
+        if "A" in line and 'SOA' not in line and 'CNAME' not in line:
+           fields = line.strip().split()
+           name = fields[2]
+           type = fields[3]
+           content = fields[4]
+           get_a =  (name + '.', ttl, 'IN', type, content)
+           mya = " ".join(get_a)
+           # List A record
+           try:
+             mya
+           except NameError:
+             print "; well, it WASN'T defined after all!"
+           else:
+             print mya
+        if "CNAME" in line:
+           fields = line.strip().split()
+           name = fields[2]
+           type = fields[3]
+           content = fields[4]
+           get_cname =  (name + '.', ttl, 'IN', type, content + '.')
+           mycname = " ".join(get_cname)
+           # List CNAME record
+           try:
+             mycname
+           except NameError:
+             print "; well, it WASN'T defined after all!"
+           else:
+             print mycname
