@@ -34,14 +34,21 @@ import ConfigParser
 from optparse import OptionParser
 
 path='sample.txt'
+
+# generator only to read nonblank lines
+def nonblank_lines(f):
+    for l in f:
+        line = l.rstrip()
+        if line:
+            yield line
+
 with open(path) as file:
-    for line in file:
+    for line in nonblank_lines(file):
         fields = line.strip().split()
-	domain_id = fields[1]
+        domain_id = fields[1]
         name = fields[2]
         type = fields[3]
         content = fields[4]
         ttl = fields[5]
         get_list =  (name + '.', ttl, 'IN', type, content)
         print " ".join(get_list)
-
