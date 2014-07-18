@@ -1,0 +1,8 @@
+2350    2       ravi.com        SOA     ggvaapp07.ravi.colo. ravi.ravi.com. 2014052701 43200 1200 1209600 43200 43200   0       NULL
+2351    2       ravi.com        NS      ggvaapp07.ravi.com      43200   0       NULL
+2352    2       ravi.com        NS      ggvaapp07vm1.ravi.com   43200   0       NULL
+2353    2       a.ravi.com      CNAME   ggvaapp07vm4.ravi.com   43200   0       NULL
+2354    2       ggvaapp07.ravi.com      A       10.143.2.27     43200   0       NULL
+2355    2       ggvaapp07vm1.ravi.com   A       10.143.3.24     43200   0       NULL
+2356    2       ggvaapp07vm3.ravi.com   A       10.143.3.26     43200   0       NULL
+2357    2       ggvaapp07vm4.ravi.com   PTR     10.143.3.27.ravi.com    43200   0       NULL
