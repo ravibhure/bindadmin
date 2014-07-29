@@ -118,6 +118,21 @@ def execute(sql):
         #print str(ex)
         sys.exit("Error fetching result")
 
+def nsfile(zone, name, ttl, type, content):
+    """
+    Write record details to add to zone.
+    """
+
+    nstemplate = '/tmp/nstemplate'
+    file = open(nstemplate, "w")
+    file.write("server localhost\n")
+    file.write("debug yes\n")
+    file.write("zone %s.\n" % zone)
+    file.write("update add %s. %s %s %s\n" % (name, ttl, type, content))
+    file.write("show\n")
+    file.write("send\n")
+    file.close()
+
 def check(args):
     """
     Figure out server IP or name for a given 'zone'.
@@ -127,7 +142,7 @@ def check(args):
     buffer = ""
     conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
     mysql = conn.cursor()
-    ip = args.ip
+    content = args.content
     name = args.name
     zone = args.zone
     zoneid = zonedetails(zone)
@@ -135,17 +150,16 @@ def check(args):
         if name:
 	    is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", name)
 	    if is_valid:
-                sql = """ select * from records where domain_id='%s' and name='%s' """ % (zoneid, name)
+		search = name
+                sql = """ select * from records where domain_id='%s' and name='%s' """ % (zoneid, search)
 	    else:
 		raise
-        elif ip:
-	    is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", ip)
-	    if is_valid:
-                sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, ip)
-	    else:
-		raise
+        elif content:
+	    search = content
+            sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, search)
     except Exception, ex:
-        sys.exit("Error - While searching given value, probabily it is not valid hostname/ip")
+        print "Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content)
+	sys.exit(1)
 
     try:
         mysql.execute(sql)
@@ -160,11 +174,12 @@ def check(args):
             ttl = fields[5]
         mysql.close()
         conn.close()
-        print name, 'Record Type --> ' + type, ', Result Value --> ' + content
-	return name, type, content
+        print name , '--> Record Type --> ' + type, ', Result Value --> ' + content
+	#return name, type, content
     except Exception, ex:
         #print str(ex)
-        sys.exit("Error fetching search string, this may cause if you are trying to search incorrect 'object', which is not present into the zone")
+        print "Error while looking '%s', this may cause if you are trying to search incorrect 'object', which is not present into the zone db" % search
+	sys.exit(1)
 
 def addrecord(args):
     """ Connects to the zone specified by the user and add record to its fields. """
@@ -173,13 +188,44 @@ def addrecord(args):
     content = args.content
     zone = args.zone
     zoneid = zonedetails(zone)
+
+    # Validation..valdation and more
     try:
-        if type in SUPPORTED_RECORD_TYPES:
-            validation(zoneid, name, type, content)
-        else:
-	    raise
+        if name:
+            is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", name)
+            if is_valid:
+              try:
+                  if type in SUPPORTED_RECORD_TYPES:
+                      if type == 'A':
+                        try:
+                            if content:
+                                is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", content)
+                                if is_valid:
+                                    validation(zoneid, name, type, content)
+                                else:
+                                    raise
+                            else:
+                                raise
+                        except Exception, ex:
+                            print "Error - '%s' is not a valid ip" % content
+                            sys.exit(1)
+                      else:
+                        pass
+                  else:
+                      raise
+              except Exception, ex:
+                  print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+                  sys.exit(1)
+            else:
+                raise
+        elif content:
+            is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", ip)
+            if is_valid:
+                pass
+            else:
+                raise
     except Exception, ex:
-        print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+        print "Error - '%s', probabily it is not valid hostname/ip" % (name)
         sys.exit(1)
 
     if args.ttl:
@@ -190,6 +236,7 @@ def addrecord(args):
 
     result = execute(sql)
     print "%s - added record '%s' successfully" % (result, name)
+    nsfile(zone, name, ttl, type, content)
 
 def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
@@ -225,22 +272,22 @@ def main():
     parser_show = subparsers.add_parser('show',help="show's your defined search from given zones")
     parser_show.add_argument("-z", "--zone", help="Set the zone to be check",required=True)
     parser_show.add_argument("-n", "--name", help="The record name to be check",required=False)
-    parser_show.add_argument("-i", "--ip", help="The ip address to be check",required=False)
+    parser_show.add_argument("-c", "--content", help="The record value or ip address to be check",required=False)
     parser_show.set_defaults(func=check)
 
     # toggle add record
     parser_add  = subparsers.add_parser('add', help="Add the given record to the zone")
     parser_add.add_argument("-n", "--name", help="The record name to add",required=True)
-    parser_add.add_argument("-r", "--type", help="The record type to add for record name",required=True)
-    parser_add.add_argument("-v", "--content", help="The record value to add for record name",required=True)
-    parser_add.add_argument("-t", "--ttl", help="The record ttl to add for record name",required=False)
+    parser_add.add_argument("-t", "--type", help="The record type to add for record name",required=True)
+    parser_add.add_argument("-c", "--content", help="The record value to add for record name",required=True)
+    parser_add.add_argument("-tl", "--ttl", help="The record ttl to add for record name",required=False)
     parser_add.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
     parser_add.set_defaults(func=addrecord)
 
     # toggle delte record
     parser_delete  = subparsers.add_parser('delete', help="Remove the given record from the zone(s)")
     parser_delete.add_argument("-n", "--name", help="The record name to delete",required=True)
-    parser_delete.add_argument("-r", "--type", help="The record type to delete for record name",required=False)
+    parser_delete.add_argument("-t", "--type", help="The record type to delete for record name",required=False)
     parser_delete.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
     parser_delete.set_defaults(func=deleterecord)
 
