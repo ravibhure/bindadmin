@@ -1,7 +1,7 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 '''
-    -*- coding: utf-8 -*-
 
     (c) 2014, Ravi Bhure <ravibhure@gmail.com>
 
@@ -39,13 +39,14 @@
     This script is more clearly used, stuff written and managed from following git repo written by Juned Memon:
     https://github.com/junaid18183/zonemanage
 '''
-
 import re,argparse,sys,os,MySQLdb
 
 host = 'localhost'
 user = 'glamdns'
 password = 'password'
 database = 'glamdns'
+
+SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
 
 def zonedetails(zone):
     """
@@ -172,7 +173,15 @@ def addrecord(args):
     content = args.content
     zone = args.zone
     zoneid = zonedetails(zone)
-    validation(zoneid, name, type, content)
+    try:
+        if type in SUPPORTED_RECORD_TYPES:
+            validation(zoneid, name, type, content)
+        else:
+	    raise
+    except Exception, ex:
+        print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+        sys.exit(1)
+
     if args.ttl:
 	ttl = args.ttl
     else:
@@ -187,9 +196,17 @@ def deleterecord(args):
     name = args.name
     zone = args.zone
     zoneid = zonedetails(zone)
+
     if args.type:
         type = args.type
-        sql = """ delete from records where domain_id='%s' and name='%s' and type='%s' """ % (zoneid, name, type)
+        try:
+            if type in SUPPORTED_RECORD_TYPES:
+                sql = """ delete from records where domain_id='%s' and name='%s' and type='%s' """ % (zoneid, name, type)
+            else:
+                raise
+        except Exception, ex:
+            print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+            sys.exit(1)
     else:
         sql = """ delete from records where domain_id='%s' and name='%s' """ % (zoneid, name)
 
