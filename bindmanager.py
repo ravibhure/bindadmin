@@ -39,12 +39,13 @@
     This script is more clearly used, stuff written and managed from following git repo written by Juned Memon:
     https://github.com/junaid18183/zonemanage
 '''
+
 import re,argparse,sys,os,MySQLdb
 
 host = 'localhost'
-user = 'glamdns'
+user = 'bindadmin'
 password = 'password'
-database = 'glamdns'
+database = 'dnsdb'
 
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
 
@@ -118,7 +119,7 @@ def execute(sql):
         #print str(ex)
         sys.exit("Error fetching result")
 
-def nsfile(zone, name, ttl, type, content):
+def nsfile(action, zone, data):
     """
     Write record details to add to zone.
     """
@@ -128,7 +129,10 @@ def nsfile(zone, name, ttl, type, content):
     file.write("server localhost\n")
     file.write("debug yes\n")
     file.write("zone %s.\n" % zone)
-    file.write("update add %s. %s %s %s\n" % (name, ttl, type, content))
+    if action == 'add':
+       file.write("update add %s\n" % data)
+    if action == 'delete':
+       file.write("update delete %s\n" % data)
     file.write("show\n")
     file.write("send\n")
     file.close()
@@ -175,7 +179,7 @@ def check(args):
         mysql.close()
         conn.close()
         print name , '--> Record Type --> ' + type, ', Result Value --> ' + content
-	#return name, type, content
+	return name, type, content
     except Exception, ex:
         #print str(ex)
         print "Error while looking '%s', this may cause if you are trying to search incorrect 'object', which is not present into the zone db" % search
@@ -236,19 +240,26 @@ def addrecord(args):
 
     result = execute(sql)
     print "%s - added record '%s' successfully" % (result, name)
-    nsfile(zone, name, ttl, type, content)
+    action = 'add'
+    data = "%s. %s %s %s" % (name, ttl, type, content)
+    nsfile(action, zone, data)
 
 def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
     name = args.name
     zone = args.zone
+    type = args.type
     zoneid = zonedetails(zone)
 
-    if args.type:
-        type = args.type
+    if args.content and type:
+        content = args.content
+        sql = """ delete from records where domain_id='%s' and name='%s' and content='%s' and type='%s' """ % (zoneid, name, content, type)
+	data = "%s. %s %s" % (name, type, content)
+    elif type:
         try:
             if type in SUPPORTED_RECORD_TYPES:
                 sql = """ delete from records where domain_id='%s' and name='%s' and type='%s' """ % (zoneid, name, type)
+		data = "%s. %s" % (name, type)
             else:
                 raise
         except Exception, ex:
@@ -259,13 +270,16 @@ def deleterecord(args):
 
     result = execute(sql)
     print "%s - removed record(s) '%s' successfully" % (result, name)
+    ttl = '86400'
+    action = 'delete'
+    nsfile(action, zone, data)
 
 def main():
     """
     Figure out what you want to do from bindadmin, and then do the
     needful (at the earliest).
     """
-    parser = argparse.ArgumentParser(description="Queries the zone database for Build information")
+    parser = argparse.ArgumentParser(description="Queries the zone database for Build information", epilog="To know more, write to: ravib@glam.com")
     subparsers = parser.add_subparsers()
 
     # toggle show record
@@ -287,7 +301,8 @@ def main():
     # toggle delte record
     parser_delete  = subparsers.add_parser('delete', help="Remove the given record from the zone(s)")
     parser_delete.add_argument("-n", "--name", help="The record name to delete",required=True)
-    parser_delete.add_argument("-t", "--type", help="The record type to delete for record name",required=False)
+    parser_delete.add_argument("-t", "--type", help="The record type to delete for record name",required=True)
+    parser_delete.add_argument("-c", "--content", help="The record value to add for record name",required=False)
     parser_delete.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
     parser_delete.set_defaults(func=deleterecord)
 
