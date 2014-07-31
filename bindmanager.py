@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 '''
 
     (c) 2014, Ravi Bhure <ravibhure@gmail.com>
@@ -40,13 +39,21 @@
     https://github.com/junaid18183/zonemanage
 '''
 
-import re,argparse,sys,os,MySQLdb
+import re,argparse,sys,os,time,MySQLdb
 
 host = 'localhost'
 user = 'bindadmin'
 password = 'password'
 database = 'dnsdb'
-
+dnsmaster = 'localhost'
+rndckey = 'rndc-key:ZwVrlhCWkVyRStQxe0ajsQ=='
+nsupdate = '/usr/bin/nsupdate'
+zonepath = '/var/named/chroot/var/named/'
+rndc = '/usr/sbin/rndc'
+checkzone = '/usr/sbin/named-checkzone'
+archive_dir = '/var/tmp/zonemanage_archive/'
+authoremail = 'ravibhure@gmail.com'
+now = time.strftime("%Y%d%m%H%M%S")
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
 
 def zonedetails(zone):
@@ -70,7 +77,7 @@ def zonedetails(zone):
         conn.close()
         return id
     except Exception, ex:
-        sys.exit("Error fetching result - no such zone available, please provide correct zone name")
+        sys.exit("Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
 
 def validation(zoneid, name, type, content):
     """
@@ -93,11 +100,90 @@ def validation(zoneid, name, type, content):
       mysql.close()
       conn.close()
       if already_in:
-         sys.exit("Error - record already found in zone db")
+         sys.exit("Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
     except Exception, ex:
         return 0
     else:
         return 0
+
+
+def syscall(cmd):
+    """  Run system commands """
+
+    try:
+        rc = os.system(cmd)
+        if rc == 0:
+            return True
+        else:
+            return False
+    except Exception, e:
+        sys.exit("Error: %s" % e)
+
+def archivezone(zone):
+    """ Backup your Zone """
+    if not os.path.isdir(archive_dir):
+      os.makedirs(archive_dir)
+    zone_file = os.path.join(zonepath, zone)
+    archive_file = os.path.join(archive_dir, zone)
+    cmd = "cp -f %s %s-%s" % (zone_file, archive_file, now)
+
+    try:
+        if syscall(cmd):
+           print "Successfully backed up '%s' zone to '%s-%s'" % (zone, archive_file, now)
+        else:
+           raise
+    except Exception, ex:
+        sys.exit("Error: while backup '%s' zone" % zone)
+
+def revertzone(zone):
+    """ Revert your Zone """
+    if not os.path.isdir(archive_dir):
+      os.makedirs(archive_dir)
+    return None
+    zone_file = os.path.join(zonepath, zone)
+    archive_file = os.path.join(archive_dir, zone)
+    cmd = "cp -f %s-%s %s" % (archive_file, now, zone_file)
+
+    try:
+        if syscall(cmd):
+           print "Successfully reverted '%s' zone to '%s'" % (zone, zone_file)
+        else:
+           raise
+    except Exception, ex:
+        sys.exit("Error: while reverted '%s' zone from '%s'" % (zone, archive_file))
+
+def reloadzone(zone):
+    """ Reload your Zone """
+    cmd = "%s freeze %s > /dev/null 2>&1 && %s reload > /dev/null 2>&1 %s && %s thaw %s > /dev/null 2>&1" % (rndc, zone, rndc, zone, rndc, zone)
+
+    try:
+        if syscall(cmd):
+           print "Successfully reloaded '%s' zone" % zone
+        else:
+           raise
+    except Exception, ex:
+        sys.exit("Error: while reload '%s' zone" % zone)
+
+def check_zone(zonepath, zone):
+    """
+    Check the syntax of a zonefile by calling the named-checkzone
+    binary defined in the config 'checkzone'.
+    If 'checkzone' is not defined then this check is disabled
+    (it always returns True).
+    """
+    zone_file = os.path.join(zonepath, zone)
+    try:
+       if os.path.isfile(zone_file):
+          cmd = "%s -t %s %s %s > /dev/null 2>&1" % (checkzone, zonepath, zone, zone)
+       else:
+          raise
+    except Exception, ex:
+        sys.exit("Error: '%s' zone file does not exist at '%s', please check or adjust your zonepath" % (zone, zonepath))
+
+    if syscall(cmd):
+       return True
+    else:
+       return False
 
 
 def execute(sql):
@@ -117,7 +203,7 @@ def execute(sql):
 	return "Task Done"
     except Exception, ex:
         #print str(ex)
-        sys.exit("Error fetching result")
+        sys.exit("Error while updating database")
 
 def nsfile(action, zone, data):
     """
@@ -125,17 +211,34 @@ def nsfile(action, zone, data):
     """
 
     nstemplate = '/tmp/nstemplate'
-    file = open(nstemplate, "w")
-    file.write("server localhost\n")
-    file.write("debug yes\n")
-    file.write("zone %s.\n" % zone)
-    if action == 'add':
-       file.write("update add %s\n" % data)
-    if action == 'delete':
-       file.write("update delete %s\n" % data)
-    file.write("show\n")
-    file.write("send\n")
-    file.close()
+    try:
+        file = open(nstemplate, "w")
+        file.write("server %s\n" % dnsmaster)
+        #file.write("debug yes\n")
+        file.write("zone %s.\n" % zone)
+        if action == 'add':
+           file.write("update add %s\n" % data)
+        if action == 'delete':
+           file.write("update delete %s\n" % data)
+        #file.write("show\n")
+        file.write("send\n")
+        file.close()
+	return 0
+    except Exception, ex:
+        sys.exit("Error while write data to nsupdate template '%s' file" % nstemplate)
+
+def dnsupdate(zone):
+    """ NSupdate your Zone """
+    nstemplate = '/tmp/nstemplate'
+    cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nstemplate)
+
+    try:
+        if syscall(cmd):
+           print "Successfully updated '%s' zone" % zone
+        else:
+           raise
+    except Exception, ex:
+        sys.exit("Error: while nsupdate to '%s' zone" % zone)
 
 def check(args):
     """
@@ -213,7 +316,21 @@ def addrecord(args):
                         except Exception, ex:
                             print "Error - '%s' is not a valid ip" % content
                             sys.exit(1)
+                      elif type == 'CNAME':
+                        try:
+                            if content:
+                                is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", content)
+                                if is_valid:
+                                    validation(zoneid, name, type, content)
+                                else:
+                                    raise
+                            else:
+                                raise
+                        except Exception, ex:
+                            print "Error - '%s' is not a valid hostname" % content
+                            sys.exit(1)
                       else:
+                        validation(zoneid, name, type, content)
                         pass
                   else:
                       raise
@@ -243,6 +360,19 @@ def addrecord(args):
     action = 'add'
     data = "%s. %s %s %s" % (name, ttl, type, content)
     nsfile(action, zone, data)
+
+    archivezone(zone)
+    dnsupdate(zone)
+    if check_zone(zonepath, zone):
+        print "Sanity check went good for '%s'" % zone
+        reloadzone(zone)
+        return True
+    else:
+        revertzone(zone)
+        reloadzone(zone)
+        raise
+        sys.exit("Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+
 
 def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
@@ -274,12 +404,24 @@ def deleterecord(args):
     action = 'delete'
     nsfile(action, zone, data)
 
+    archivezone(zone)
+    dnsupdate(zone)
+    if check_zone(zonepath, zone):
+        print "Sanity check went good for '%s'" % zone
+        reloadzone(zone)
+        return True
+    else:
+        revertzone(zone)
+        reloadzone(zone)
+        raise
+        sys.exit("Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+
 def main():
     """
     Figure out what you want to do from bindadmin, and then do the
     needful (at the earliest).
     """
-    parser = argparse.ArgumentParser(description="Queries the zone database for Build information", epilog="To know more, write to: ravib@glam.com")
+    parser = argparse.ArgumentParser(description="Queries the zone database for Build information", epilog="To know more, write to: %s" % authoremail)
     subparsers = parser.add_subparsers()
 
     # toggle show record
