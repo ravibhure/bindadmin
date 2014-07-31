@@ -39,7 +39,15 @@
     https://github.com/junaid18183/zonemanage
 '''
 
-import re,argparse,sys,os,time,MySQLdb
+import re,argparse,sys,os,time
+try:
+    import MySQLdb
+except ImportError:
+    sys.exit("The python MySQLdb module is required")
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 host = 'localhost'
 user = 'bindadmin'
@@ -62,9 +70,14 @@ def zonedetails(zone):
     """
 
     buffer = ""
-    conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
-    mysql = conn.cursor()
+    try:
+        conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
+        mysql = conn.cursor()
+    except MySQLdb.OperationalError, e:
+        logger.error(" Error - While connecting to database...")
+        sys.exit(1)
     # Get the zone id
+
     try:
 	sql = """ select * from domains where name="%s" """ % zone
         mysql.execute(sql)
@@ -77,7 +90,8 @@ def zonedetails(zone):
         conn.close()
         return id
     except Exception, ex:
-        sys.exit("Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
+        logger.error(" Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
+        sys.exit(1)
 
 def validation(zoneid, name, type, content):
     """
@@ -85,9 +99,14 @@ def validation(zoneid, name, type, content):
     """
 
     buffer = ""
-    conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
-    mysql = conn.cursor()
+    try:
+        conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
+        mysql = conn.cursor()
+    except MySQLdb.OperationalError, e:
+        logger.error(" Error - While connecting to database...")
+        sys.exit(1)
     # verified me
+
     sql = """ select * from records where domain_id='%s' and name="%s" and type="%s" and content="%s" """ % (zoneid, name, type, content)
     try:
       mysql.execute(sql)
@@ -100,7 +119,8 @@ def validation(zoneid, name, type, content):
       mysql.close()
       conn.close()
       if already_in:
-         sys.exit("Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
+         logger.error(" Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
+         sys.exit(1)
     except Exception, ex:
         return 0
     else:
@@ -117,6 +137,7 @@ def syscall(cmd):
         else:
             return False
     except Exception, e:
+        logger.error(" Shell command failed with following error: ")
         sys.exit("Error: %s" % e)
 
 def archivezone(zone):
@@ -129,11 +150,12 @@ def archivezone(zone):
 
     try:
         if syscall(cmd):
-           print "Successfully backed up '%s' zone to '%s-%s'" % (zone, archive_file, now)
+           logger.info("Successfully backed up '%s' zone to '%s-%s'" % (zone, archive_file, now))
         else:
            raise
     except Exception, ex:
-        sys.exit("Error: while backup '%s' zone" % zone)
+        logger.error(" Error: while backup '%s' zone" % zone)
+        sys.exit(1)
 
 def revertzone(zone):
     """ Revert your Zone """
@@ -146,11 +168,12 @@ def revertzone(zone):
 
     try:
         if syscall(cmd):
-           print "Successfully reverted '%s' zone to '%s'" % (zone, zone_file)
+           logger.info("Successfully reverted '%s' zone to '%s'" % (zone, zone_file))
         else:
            raise
     except Exception, ex:
-        sys.exit("Error: while reverted '%s' zone from '%s'" % (zone, archive_file))
+        logger.error(" Error: while reverted '%s' zone from '%s'" % (zone, archive_file))
+        sys.exit(1)
 
 def reloadzone(zone):
     """ Reload your Zone """
@@ -158,11 +181,12 @@ def reloadzone(zone):
 
     try:
         if syscall(cmd):
-           print "Successfully reloaded '%s' zone" % zone
+           logger.info("Successfully reloaded '%s' zone" % zone)
         else:
            raise
     except Exception, ex:
-        sys.exit("Error: while reload '%s' zone" % zone)
+        logger.error(" Error: while reload '%s' zone" % zone)
+        sys.exit(1)
 
 def check_zone(zonepath, zone):
     """
@@ -178,7 +202,8 @@ def check_zone(zonepath, zone):
        else:
           raise
     except Exception, ex:
-        sys.exit("Error: '%s' zone file does not exist at '%s', please check or adjust your zonepath" % (zone, zonepath))
+        logger.error(" Error: '%s' zone file does not exist at '%s', please check or adjust your zonepath" % (zone, zonepath))
+        sys.exit(1)
 
     if syscall(cmd):
        return True
@@ -192,9 +217,14 @@ def execute(sql):
     """
 
     buffer = ""
-    conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
-    mysql = conn.cursor()
+    try:
+        conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
+        mysql = conn.cursor()
+    except MySQLdb.OperationalError, e:
+        logger.error(" Error - While connecting to database...")
+        sys.exit(1)
     # Database action
+
     try:
         mysql.execute(sql)
         rows = ''
@@ -202,8 +232,8 @@ def execute(sql):
         conn.close()
 	return "Task Done"
     except Exception, ex:
-        #print str(ex)
-        sys.exit("Error while updating database")
+        logger.error(" Error while updating database")
+        sys.exit(1)
 
 def nsfile(action, zone, data):
     """
@@ -225,7 +255,8 @@ def nsfile(action, zone, data):
         file.close()
 	return 0
     except Exception, ex:
-        sys.exit("Error while write data to nsupdate template '%s' file" % nstemplate)
+        logger.error(" Error while write data to nsupdate template '%s' file" % nstemplate)
+        sys.exit(1)
 
 def dnsupdate(zone):
     """ NSupdate your Zone """
@@ -234,11 +265,12 @@ def dnsupdate(zone):
 
     try:
         if syscall(cmd):
-           print "Successfully updated '%s' zone" % zone
+           logger.info("Successfully updated '%s' zone" % zone)
         else:
            raise
     except Exception, ex:
-        sys.exit("Error: while nsupdate to '%s' zone" % zone)
+        logger.error(" Error: while nsupdate to '%s' zone" % zone)
+        sys.exit(1)
 
 def check(args):
     """
@@ -247,8 +279,13 @@ def check(args):
     """
 
     buffer = ""
-    conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
-    mysql = conn.cursor()
+    try:
+        conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)
+        mysql = conn.cursor()
+    except MySQLdb.OperationalError, e:
+        logger.error(" Error - While connecting to database...")
+        sys.exit(1)
+
     content = args.content
     name = args.name
     zone = args.zone
@@ -265,27 +302,29 @@ def check(args):
 	    search = content
             sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, search)
     except Exception, ex:
-        print "Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content)
-	sys.exit(1)
+        logger.error(" Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
+        sys.exit(1)
 
     try:
         mysql.execute(sql)
         result = ''
         rows = ''
         rows=mysql.fetchall()
-        for fields in rows:
-            domain_id = fields[1]
-            name = fields[2]
-            type = fields[3]
-            content = fields[4]
-            ttl = fields[5]
         mysql.close()
         conn.close()
-        print name , '--> Record Type --> ' + type, ', Result Value --> ' + content
-	return name, type, content
+        if rows:
+            for fields in rows:
+                domain_id = fields[1]
+                name = fields[2]
+                type = fields[3]
+                content = fields[4]
+                ttl = fields[5]
+            print name , '--> Record Type --> ' + type, ', Result Value --> ' + content
+            return name, type, content
+        else:
+            raise
     except Exception, ex:
-        #print str(ex)
-        print "Error while looking '%s', this may cause if you are trying to search incorrect 'object', which is not present into the zone db" % search
+        logger.error(" Error while looking '%s', this may cause if you are trying to search incorrect 'object', which is not present into the zone db" % search)
 	sys.exit(1)
 
 def addrecord(args):
@@ -314,8 +353,8 @@ def addrecord(args):
                             else:
                                 raise
                         except Exception, ex:
-                            print "Error - '%s' is not a valid ip" % content
-                            sys.exit(1)
+                            logger.error(" Error - '%s' is not a valid ip" % content)
+			    sys.exit(1)
                       elif type == 'CNAME':
                         try:
                             if content:
@@ -327,7 +366,7 @@ def addrecord(args):
                             else:
                                 raise
                         except Exception, ex:
-                            print "Error - '%s' is not a valid hostname" % content
+                            logger.error(" Error - '%s' is not a valid hostname" % content)
                             sys.exit(1)
                       else:
                         validation(zoneid, name, type, content)
@@ -335,7 +374,7 @@ def addrecord(args):
                   else:
                       raise
               except Exception, ex:
-                  print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+                  logger.error(" Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
                   sys.exit(1)
             else:
                 raise
@@ -346,7 +385,7 @@ def addrecord(args):
             else:
                 raise
     except Exception, ex:
-        print "Error - '%s', probabily it is not valid hostname/ip" % (name)
+        logger.error(" Error - '%s', probabily it is not valid hostname/ip" % name)
         sys.exit(1)
 
     if args.ttl:
@@ -356,7 +395,7 @@ def addrecord(args):
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, type, content, ttl, zoneid)
 
     result = execute(sql)
-    print "%s - added record '%s' successfully" % (result, name)
+    logger.info("%s - added record '%s' successfully" % (result, name))
     action = 'add'
     data = "%s. %s %s %s" % (name, ttl, type, content)
     nsfile(action, zone, data)
@@ -364,14 +403,15 @@ def addrecord(args):
     archivezone(zone)
     dnsupdate(zone)
     if check_zone(zonepath, zone):
-        print "Sanity check went good for '%s'" % zone
+        logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
         return True
     else:
         revertzone(zone)
         reloadzone(zone)
         raise
-        sys.exit("Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        logger.error(" Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        sys.exit(1)
 
 
 def deleterecord(args):
@@ -393,13 +433,13 @@ def deleterecord(args):
             else:
                 raise
         except Exception, ex:
-            print "Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES)
+            logger.error(" Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
             sys.exit(1)
     else:
         sql = """ delete from records where domain_id='%s' and name='%s' """ % (zoneid, name)
 
     result = execute(sql)
-    print "%s - removed record(s) '%s' successfully" % (result, name)
+    logger.info("%s - removed record(s) '%s' successfully" % (result, name))
     ttl = '86400'
     action = 'delete'
     nsfile(action, zone, data)
@@ -407,14 +447,15 @@ def deleterecord(args):
     archivezone(zone)
     dnsupdate(zone)
     if check_zone(zonepath, zone):
-        print "Sanity check went good for '%s'" % zone
+        logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
         return True
     else:
         revertzone(zone)
         reloadzone(zone)
         raise
-        sys.exit("Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        logger.error(" Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        sys.exit(1)
 
 def main():
     """
@@ -457,4 +498,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
