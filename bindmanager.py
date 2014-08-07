@@ -130,8 +130,8 @@ def check(args):
     buffer = ""
 
     content = args.content
-    name = args.name
-    zone = args.zone
+    name = args.name.lower()
+    zone = args.zone.lower()
     zoneid = zonedetails(zone)
     try:
         if name:
@@ -172,10 +172,10 @@ def check(args):
 
 def addrecord(args):
     """ Connects to the zone specified by the user and add record to its fields. """
-    name = args.name
-    type = args.type
+    name = args.name.lower()
+    type = args.type.upper()
     content = args.content
-    zone = args.zone
+    zone = args.zone.lower()
     zoneid = zonedetails(zone)
 
     # Validation..valdation and more
@@ -259,9 +259,9 @@ def addrecord(args):
 
 def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
-    name = args.name
-    zone = args.zone
-    type = args.type
+    name = args.name.lower()
+    zone = args.zone.lower()
+    type = args.type.upper()
     zoneid = zonedetails(zone)
 
     if args.content and type:
