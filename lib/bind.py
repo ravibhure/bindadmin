@@ -18,7 +18,69 @@ dnsmaster = 'localhost'
 archive_dir = '/var/tmp/zonemanage_archive/'
 authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
+nstemplate = '/tmp/nstemplate'
+
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
+
+def load_config_file():
+    ''' Load Config File order(first found is used): ENV, CWD, HOME, /etc/bindadmin '''
+
+    parser = ConfigParser.ConfigParser()
+
+    path1 = os.getcwd() + "/config.cfg"
+    path2 = os.path.expanduser("~/config.cfg")
+    path3 = "/etc/bindadmin/config.cfg"
+
+    for path in [path1, path2, path3]:
+        if  path is not None and os.path.exists(path):
+            parser.read(path)
+            return parser
+    return None
+
+def load_mycnf():
+    
+    try:
+        parser = load_config_file()
+        if  parser is not None:
+            parser = load_config_file()
+        else:
+            raise
+    except Exception, e:
+        logger.error(" Error - config file not found...")
+        sys.exit(1)
+
+    # We support two forms of database user passwords in config.cnf, both pass= and password=,
+    # as these are both supported by MySQL.
+    try:
+        passwd = config_get(parser, 'database', 'dbpassword')
+    except (ConfigParser.NoOptionError):
+        try:
+            passwd = config_get(parser, 'database', 'dbpass')
+        except (ConfigParser.NoOptionError):
+            return False
+
+    # If config.cnf doesn't specify a database user, return false
+    try:
+        user = config_get(parser, 'database', 'dbuser')
+    except (ConfigParser.NoOptionError):
+        return False
+
+    # If config.cnf doesn't specify a database name, return false
+    try:
+        db = config_get(parser, 'database', 'dbname')
+    except (ConfigParser.NoOptionError):
+        return False
+
+    # If config.cnf doesn't specify a database host, return false
+    try:
+        host = config_get(parser, 'database', 'dbhost')
+    except (ConfigParser.NoOptionError):
+        return False
+        
+    #conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)        
+    creds = dict(user=user,passwd=passwd,db=db,host=host)
+    return creds
+ 
 
 def strip_quotes(s):
     """ Remove surrounding single or double quotes
@@ -42,60 +104,12 @@ def strip_quotes(s):
         s = s.strip(double_quote)
     return s
 
-
-def config_get(config, section, option):
+def config_get(parser, section, option):
     """ Calls ConfigParser.get and strips quotes
 
     See: http://dev.mysql.com/doc/refman/5.0/en/option-files.html
     """
-    return strip_quotes(config.get(section, option))
-
-def load_mycnf():
-    config = ConfigParser.RawConfigParser()
-    #mycnf = os.path.expanduser([ 'config.cfg', '~/config.cfg', '/etc/bindadmin/config.cfg'])
-    mycnf = os.path.expanduser('config.cfg')
-    
-    if not os.path.exists(mycnf):
-        return False
-    try:
-        config.readfp(open(mycnf))
-    except (IOError):
-        return False
-    except:
-        config = _safe_cnf_load(config, mycnf)
-
-    # We support two forms of database user passwords in config.cnf, both pass= and password=,
-    # as these are both supported by MySQL.
-    try:
-        passwd = config_get(config, 'database', 'dbpassword')
-    except (ConfigParser.NoOptionError):
-        try:
-            passwd = config_get(config, 'database', 'dbpass')
-        except (ConfigParser.NoOptionError):
-            return False
-
-    # If config.cnf doesn't specify a database user, return false
-    try:
-        user = config_get(config, 'database', 'dbuser')
-    except (ConfigParser.NoOptionError):
-        return False
-
-    # If config.cnf doesn't specify a database name, return false
-    try:
-        db = config_get(config, 'database', 'dbname')
-    except (ConfigParser.NoOptionError):
-        return False
-
-    # If config.cnf doesn't specify a database host, return false
-    try:
-        host = config_get(config, 'database', 'dbhost')
-    except (ConfigParser.NoOptionError):
-        return False
-        
-    #conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)        
-    creds = dict(user=user,passwd=passwd,db=db,host=host)
-    return creds
- 
+    return strip_quotes(parser.get(section, option))
 
 def dbconnection():
     """ Create database connection to used everywhere """
@@ -203,7 +217,6 @@ def nsfile(action, zone, data):
     Write record details to add to zone.
     """
 
-    nstemplate = '/tmp/nstemplate'
     try:
         file = open(nstemplate, "w")
         file.write("server %s\n" % dnsmaster)
@@ -223,7 +236,6 @@ def nsfile(action, zone, data):
 
 def dnsupdate(zone):
     """ NSupdate your Zone """
-    nstemplate = '/tmp/nstemplate'
     cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nstemplate)
 
     try:
