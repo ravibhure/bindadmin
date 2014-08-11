@@ -129,6 +129,25 @@ def dbconnection():
         logger.error(" Error - While connecting to database...")
         sys.exit(1)
 
+def find_hostname(zone, name):
+    """ Parse valid hostname from fqdn """
+
+    single_dot = "."
+
+    if zone in name:
+        # Find hostnames but move root zone to start of list
+        name = name.split(zone)
+        name = "".join(name)[:-1]
+        if name.endswith(single_dot):
+            name = name.strip(single_dot)
+
+    else:
+        # Find hostnames
+        if name.endswith(single_dot):
+            name = name.strip(single_dot)
+
+    return name
+
 def syscall(cmd):
     """  Run system commands """
 
