@@ -1,0 +1,4 @@
+MySQL-python
+ConfigParser
+argparse
+prettytable

@@ -44,6 +44,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("__bindadmin__")
 from lib.bind import *
 
+from prettytable import PrettyTable
+
 def zonedetails(zone):
     """
     Executes a mysql command by sending a query to a MySQL database server.
@@ -67,7 +69,7 @@ def zonedetails(zone):
         logger.error(" Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
         sys.exit(1)
 
-def validation(zoneid, name, type, content):
+def validation(zoneid, name, zone, type, content):
     """
     Executes a mysql command by sending a query to a MySQL database server.
     """
@@ -78,7 +80,7 @@ def validation(zoneid, name, type, content):
     buffer = ""
     # verified me
 
-    sql = """ select * from records where domain_id='%s' and name="%s" and type="%s" and content="%s" """ % (zoneid, name, type, content)
+    sql = """ select * from records where domain_id='%s' and name="%s.%s" and type="%s" and content="%s" """ % (zoneid, name, zone, type, content)
     try:
       mysql.execute(sql)
       rows = ''
@@ -130,20 +132,27 @@ def check(args):
     buffer = ""
 
     content = args.content
-    name = args.name.lower()
+    name = args.name
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
+
+    # Parse hostname
+
     try:
         if name:
 	    is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", name)
 	    if is_valid:
-		search = name
-                sql = """ select * from records where domain_id='%s' and name='%s' """ % (zoneid, search)
+		search = name.lower()
+		search = find_hostname(zone, search)
+                sql = """ select * from records where domain_id='%s' and name='%s.%s' """ % (zoneid, search, zone)
 	    else:
 		raise
         elif content:
 	    search = content
             sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, search)
+	else:
+            sql = """ select * from records where domain_id='%s' """ % (zoneid)
+	    #raise
     except Exception, ex:
         logger.error(" Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
         sys.exit(1)
@@ -152,6 +161,9 @@ def check(args):
         mysql.execute(sql)
         result = ''
         rows = ''
+        x = PrettyTable(["Record Name", "Record Type", "Result Value"])
+        x.align["Record Name"] = "l" # Left align city names
+        x.padding_width = 1 # One space between column edges and contents (default)
         rows=mysql.fetchall()
         mysql.close()
         conn.close()
@@ -162,8 +174,8 @@ def check(args):
                 type = fields[3]
                 content = fields[4]
                 ttl = fields[5]
-            print name , '--> Record Type --> ' + type, ', Result Value --> ' + content
-            return name, type, content
+		x.add_row([name, type, content])
+            print x
         else:
             raise
     except Exception, ex:
@@ -178,6 +190,9 @@ def addrecord(args):
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
 
+    # Parse hostname
+    name = find_hostname(zone, name)
+
     # Validation..valdation and more
     try:
         if name:
@@ -190,7 +205,7 @@ def addrecord(args):
                             if content:
                                 is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", content)
                                 if is_valid:
-                                    validation(zoneid, name, type, content)
+                                    validation(zoneid, name, zone, type, content)
                                 else:
                                     raise
                             else:
@@ -203,7 +218,7 @@ def addrecord(args):
                             if content:
                                 is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", content)
                                 if is_valid:
-                                    validation(zoneid, name, type, content)
+                                    validation(zoneid, name, zone, type, content)
                                 else:
                                     raise
                             else:
@@ -235,12 +250,12 @@ def addrecord(args):
 	ttl = args.ttl
     else:
 	ttl = '86400'
-    sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, type, content, ttl, zoneid)
+    sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
     result = execute(sql)
     logger.info("%s - added record '%s' successfully" % (result, name))
     action = 'add'
-    data = "%s. %s %s %s" % (name, ttl, type, content)
+    data = "%s.%s. %s %s %s" % (name, zone, ttl, type, content)
     nsfile(action, zone, data)
 
     archivezone(zone)
@@ -264,22 +279,25 @@ def deleterecord(args):
     type = args.type.upper()
     zoneid = zonedetails(zone)
 
+    # Parse hostname
+    name = find_hostname(zone, name)
+
     if args.content and type:
         content = args.content
-        sql = """ delete from records where domain_id='%s' and name='%s' and content='%s' and type='%s' """ % (zoneid, name, content, type)
-	data = "%s. %s %s" % (name, type, content)
+        sql = """ delete from records where domain_id='%s' and name='%s.%s' and content='%s' and type='%s' """ % (zoneid, name, zone, content, type)
+	data = "%s.%s. %s %s" % (name, zone, type, content)
     elif type:
         try:
             if type in SUPPORTED_RECORD_TYPES:
-                sql = """ delete from records where domain_id='%s' and name='%s' and type='%s' """ % (zoneid, name, type)
-		data = "%s. %s" % (name, type)
+                sql = """ delete from records where domain_id='%s' and name='%s.%s' and type='%s' """ % (zoneid, name, zone, type)
+		data = "%s.%s. %s" % (name, zone, type)
             else:
                 raise
         except Exception, ex:
             logger.error(" Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
             sys.exit(1)
     else:
-        sql = """ delete from records where domain_id='%s' and name='%s' """ % (zoneid, name)
+        sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
 
     result = execute(sql)
     logger.info("%s - removed record(s) '%s' successfully" % (result, name))
