@@ -1,0 +1,157 @@
+#!/usr/bin/python
+
+import sys,os,re,argparse
+import subprocess
+import fileinput
+import csv
+
+import tempfile
+axfr = tempfile.NamedTemporaryFile(delete=False)
+zone_axfr = axfr.name
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("__bindadmin__")
+
+# +----------------------------------------------------------------------+
+from lib.bind import *
+# +----------------------------------------------------------------------+
+
+def createSQLsoa(zone, type, f):
+    with open(zone_axfr) as file:
+          try:
+              for line in file:
+                 if re.findall( "\\b"+type+"\\b", line ):
+                    fields = line.strip().split()
+                    name = fields[0].strip('.')
+                    ttl = fields[1]
+                    type = fields[3]
+                    content = fields[4].strip('.')
+                    admin = fields[5].strip('.')
+                    serial = fields[6]
+                    refresh = fields[7]
+                    retry = fields[8]
+                    expire = fields[9]
+                    minimum = fields[10]
+                    sql = """ insert into domains (name,type,content,admin,serial,refresh,retry,expire,minimum,ttl) values ('%s','%s','%s','%s','%s',%s,%s,%s,%s,%s); """ % (name,type,content,admin,serial,refresh,retry,expire,minimum,ttl)
+                    print >> f, (sql)
+                    break
+                 #else:
+		 #   raise
+          except Exception, ex:
+              print "Error while write SOA data"
+              sys.exit(1)
+
+# +----------------------------------------------------------------------+
+
+def createSQLall(zone, type, f):
+    with open(zone_axfr) as file:
+          try:
+              for line in file:
+                 if re.findall( "\\b"+type+"\\b", line ):
+                    fields = line.strip().split()
+                    name = fields[0].strip('.')
+                    ttl = fields[1]
+                    type = fields[3]
+                    if type == 'MX':
+                       prio = fields[4]
+                       content = fields[5].strip('.')
+                    else:
+                       prio = '0'
+                       content = fields[4].strip('.')
+                    sql = """ insert into records (domain_id, name,type,content,ttl,prio) select id ,'%s', '%s', '%s', %s, %s from domains where name='%s'; """ % (name,type,content,ttl,prio,zone)
+                    print >> f, (sql)
+          except Exception, ex:
+              print "Error while write data 'all'"
+              sys.exit(1)
+    f.close
+
+# +----------------------------------------------------------------------+
+
+def getAXFR(cmd):
+    """  Run system commands """
+    zone_a = open(zone_axfr, "w")
+    try:
+        proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+        if err == None:
+            print >> zone_a, out
+            return True
+        else:
+            print '%s zone available' % err
+            return False
+    except Exception, e:
+        logger.error(" Shell command failed with following error: %s" % e)
+        sys.exit(1)
+
+# +----------------------------------------------------------------------+
+
+# Run the prog to generate sql
+def importZone(args):
+    """ Import or dump zone information to SQL """
+
+    zone = args.zone.lower()
+    f = open('sql/' + zone + '.sql', "w")
+    cmd = 'dig %s -t AXFR' % zone
+    if getAXFR(cmd):
+       createSQLsoa(zone, 'SOA', f)
+       for type in SUPPORTED_RECORD_TYPES:
+           createSQLall(zone, type, f)
+    else:
+       print "Failed to get AXFR"
+       sys.exit(1)
+
+    if os.path.exists(zone_axfr):
+       os.unlink(zone_axfr)
+
+    print """
+
+    **** Successful: Created dump file - sql/%s.sql ****
+
+    NOTE: You need to manually dump/apply this to your database.
+
+    Example:
+
+    mysql> use dnsdb;
+    mysql> \. sql/%s.sql;
+
+    """ % (zone, zone)
+
+# +----------------------------------------------------------------------+
+
+def exportZone(args):
+    """ Export zone information from SQL or git"""
+
+    zone = args.zone.lower()
+
+    print "We are not setup any stuff here"
+
+# +----------------------------------------------------------------------+
+
+def main():
+    """
+    Figure out what you want to do from bindadmin, and then do the
+    needful (at the earliest).
+    """
+    parser = argparse.ArgumentParser(description="Queries the zone data for just to import(dump)/export(restore) facility, we assume SQL is our central storage", epilog="To know more, write to: %s" % authoremail)
+    subparsers = parser.add_subparsers()
+
+    # toggle show record
+    parser_import = subparsers.add_parser('import',help="Import or dump zone information to SQL")
+    parser_import.add_argument("-z", "--zone", help="Set the zone to be dump",required=True)
+    parser_import.set_defaults(func=importZone)
+
+    # toggle add record
+    parser_export  = subparsers.add_parser('export', help="Export zone information from SQL or git")
+    parser_export.add_argument("-z", "--zone", help="Set the zone to be restore",required=True)
+    parser_export.set_defaults(func=exportZone)
+
+    args = parser.parse_args()
+
+    args.func(args)
+    return 0
+
+# +----------------------------------------------------------------------+
+
+if __name__ == "__main__":
+    sys.exit(main())

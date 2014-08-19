@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import re,argparse,sys,os,time,ConfigParser
+import tempfile
+file = tempfile.NamedTemporaryFile(delete=False)
+nstemplate = file.name
 try:
     import MySQLdb
 except ImportError:
@@ -18,7 +21,6 @@ dnsmaster = 'localhost'
 archive_dir = '/var/tmp/zonemanage_archive/'
 authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
-nstemplate = '/tmp/nstemplate'
 
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
 
@@ -244,18 +246,16 @@ def nsfile(action, zone, data):
     """
     Write record details to add to zone.
     """
-
     try:
-        file = open(nstemplate, "w")
-        file.write("server %s\n" % dnsmaster)
+        file.write(b"server %s\n" % dnsmaster)
         #file.write("debug yes\n")
-        file.write("zone %s.\n" % zone)
+        file.write(b"zone %s.\n" % zone)
         if action == 'add':
-           file.write("update add %s\n" % data)
+           file.write(b"update add %s\n" % data)
         if action == 'delete':
-           file.write("update delete %s\n" % data)
+           file.write(b"update delete %s\n" % data)
         #file.write("show\n")
-        file.write("send\n")
+        file.write(b"send\n")
         file.close()
         return 0
     except Exception, ex:
@@ -264,11 +264,14 @@ def nsfile(action, zone, data):
 
 def dnsupdate(zone):
     """ NSupdate your Zone """
+
     cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nstemplate)
 
     try:
         if syscall(cmd):
            logger.info("Successfully updated '%s' zone" % zone)
+	   if os.path.exists(nstemplate):  # verify if file is exists
+	      os.unlink(nstemplate)   # delete the tempfile
         else:
            raise
     except Exception, ex:
