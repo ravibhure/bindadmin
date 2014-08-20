@@ -12,6 +12,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("__bindadmin__")
 
+named_file = '/etc/named.conf'
+
 rndckey = 'rndc-key:ZwVrlhCWkVyRStQxe0ajsQ=='
 nsupdate = '/usr/bin/nsupdate'
 zonepath = '/var/named/chroot/var/named/'
@@ -129,6 +131,37 @@ def dbconnection():
 	return conn
     except MySQLdb.OperationalError, e:
         logger.error(" Error - While connecting to database...")
+        sys.exit(1)
+
+def fixup_z_type(z_type):
+     #return z_type == "master" and "master" or z_type
+     if z_type == "master":
+        return z_type
+
+def parse_named_file(named_file, zone):
+    """
+    zone "colo" IN {
+            type master;
+            file "colo.zonefile";
+            notify yes;
+            allow-transfer { "my_networks"; };
+
+    };
+    """
+    try:
+        f = open(named_file, "r").read()
+        pat = re.compile('zone\s+[\'"]?(\S+?)[\'"]?\s*IN?\s*{.*?type\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?file\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?;', re.DOTALL | re.MULTILINE)
+        for z in pat.finditer(f):
+            z = list(z.groups())
+            z[1] = fixup_z_type(z[1])
+            if z[0] == zone:
+                return z
+                #return True
+
+    except Exception, e:
+        raise
+    except Exception, e:
+        sys.stderr.write("Can't parse a namedfile %s: %s\n" % (named_file, e))
         sys.exit(1)
 
 def find_hostname(zone, name):

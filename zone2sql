@@ -1,20 +1,15 @@
 #!/usr/bin/python
 
-import sys,os,re,argparse
+from lib.bind import *
+#import sys,os,re,argparse
 import subprocess
-import fileinput
+#import fileinput
 import csv
 
 import tempfile
 axfr = tempfile.NamedTemporaryFile(delete=False)
 zone_axfr = axfr.name
 
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("__bindadmin__")
-
-# +----------------------------------------------------------------------+
-from lib.bind import *
 # +----------------------------------------------------------------------+
 
 def createSQLsoa(zone, type, f):
@@ -36,8 +31,6 @@ def createSQLsoa(zone, type, f):
                     sql = """ insert into domains (name,type,content,admin,serial,refresh,retry,expire,minimum,ttl) values ('%s','%s','%s','%s','%s',%s,%s,%s,%s,%s); """ % (name,type,content,admin,serial,refresh,retry,expire,minimum,ttl)
                     print >> f, (sql)
                     break
-                 #else:
-		 #   raise
           except Exception, ex:
               print "Error while write SOA data"
               sys.exit(1)
@@ -91,6 +84,13 @@ def importZone(args):
     """ Import or dump zone information to SQL """
 
     zone = args.zone.lower()
+
+    v_zone = parse_named_file(named_file, zone)
+    if v_zone:
+       pass
+    else:
+       sys.exit("Error: %s not present in %s, please check" % (zone, named_file))
+
     f = open('sql/' + zone + '.sql', "w")
     cmd = 'dig %s -t AXFR' % zone
     if getAXFR(cmd):
