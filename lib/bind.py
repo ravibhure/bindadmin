@@ -28,15 +28,20 @@ SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
 
 def setup_logger():
     LOG_LEVEL = logging.DEBUG
-    LOGFORMAT = "  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+    LOGFORMAT = " %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(asctime)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+    LOG_PATH = '/var/log/bindadmin.log'
 
     logging.root.setLevel(LOG_LEVEL)
     formatter = ColoredFormatter(LOGFORMAT)
     stream = logging.StreamHandler()
     stream.setLevel(LOG_LEVEL)
     stream.setFormatter(formatter)
+    fstream = logging.FileHandler(LOG_PATH)
+    fstream.setLevel(LOG_LEVEL)
+    fstream.setFormatter(formatter)
     logger = logging.getLogger(__name__)
     logger.setLevel(LOG_LEVEL)
+    logger.addHandler(fstream)
     logger.addHandler(stream)
     return logger
 
