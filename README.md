@@ -69,3 +69,5 @@
       (we need to add .zone.com after hostname if not found)
 
       If deleting 'A' record, check and remove if there are any 'CNAME' records with that 'A' records.
+
+      Add activity event records to log file and to database.

@@ -2,6 +2,7 @@
 
 import re,argparse,sys,os,time,ConfigParser
 import tempfile
+from prettytable import PrettyTable
 file = tempfile.NamedTemporaryFile(delete=False)
 nstemplate = file.name
 try:
@@ -253,6 +254,43 @@ def reloadzone(zone):
         logger.error(" Error: while reload '%s' zone" % zone)
         sys.exit(1)
 
+def check(sql):
+    """
+    Executes a mysql command by sending a query to a MySQL database server,
+    to fetch the given search content.
+    """
+
+    conn = dbconnection()
+    mysql = conn.cursor()
+
+    buffer = ""
+    try:
+        mysql.execute(sql)
+        result = ''
+        rows = ''
+        x = PrettyTable(["Record Name", "Record Type", "Result Value"])
+        x.align["Record Name"] = "l" # Left align city names
+        x.padding_width = 1 # One space between column edges and contents (default)
+        rows=mysql.fetchall()
+        mysql.close()
+        conn.close()
+        if rows:
+            for fields in rows:
+                domain_id = fields[1]
+                name = fields[2]
+                type = fields[3]
+                content = fields[4]
+                ttl = fields[5]
+                x.add_row([name, type, content])
+            #print x
+            return x
+            return (name, type, content)
+        else:
+            raise
+    except Exception, ex:
+        logger.error(" This may be if you are trying to search incorrect 'object', which is not present into the zone db.")
+        sys.exit(1)
+
 def check_zone(zonepath, zone):
     """
     Check the syntax of a zonefile by calling the named-checkzone
@@ -310,4 +348,36 @@ def dnsupdate(zone):
     except Exception, ex:
         logger.error(" Error: while nsupdate to '%s' zone" % zone)
         sys.exit(1)
+
+def validation(zoneid, name, zone, type, content):
+    """
+    Executes a mysql command by sending a query to a MySQL database server.
+    """
+
+    conn = dbconnection()
+    mysql = conn.cursor()
+
+    buffer = ""
+    # verified me
+
+    sql = """ select * from records where domain_id='%s' and name="%s.%s" and type="%s" and content="%s" """ % (zoneid, name, zone, type, content)
+    try:
+      mysql.execute(sql)
+      rows = ''
+      rows=mysql.fetchall()
+      for fields in rows:
+          already_in = fields[2]
+          type = fields[3]
+          contentm = fields[4]
+      mysql.close()
+      conn.close()
+      if already_in:
+         logger.error(" Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
+         sys.exit(1)
+      else:
+         return 0
+    except Exception, ex:
+        return 0
+    else:
+        return 0
 

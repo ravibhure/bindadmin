@@ -43,8 +43,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("__bindadmin__")
 from lib.bind import *
-
-from prettytable import PrettyTable
+myname = os.path.basename(__file__)
 
 def zonedetails(zone):
     """
@@ -69,36 +68,6 @@ def zonedetails(zone):
         logger.error(" Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
         sys.exit(1)
 
-def validation(zoneid, name, zone, type, content):
-    """
-    Executes a mysql command by sending a query to a MySQL database server.
-    """
-
-    conn = dbconnection()
-    mysql = conn.cursor()
-
-    buffer = ""
-    # verified me
-
-    sql = """ select * from records where domain_id='%s' and name="%s.%s" and type="%s" and content="%s" """ % (zoneid, name, zone, type, content)
-    try:
-      mysql.execute(sql)
-      rows = ''
-      rows=mysql.fetchall()
-      for fields in rows:
-          already_in = fields[2]
-          type = fields[3]
-          content = fields[4]
-      mysql.close()
-      conn.close()
-      if already_in:
-         logger.error(" Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
-         sys.exit(1)
-    except Exception, ex:
-        return 0
-    else:
-        return 0
-
 def execute(sql):
     """
     Executes a mysql command by sending a query to a MySQL database server.
@@ -120,21 +89,31 @@ def execute(sql):
         logger.error(" Error while updating database")
         sys.exit(1)
 
-def check(args):
+def show(args):
     """
     Figure out server IP or name for a given 'zone'.
     Raise an exception if no suitable record is found.
     """
 
-    conn = dbconnection()
-    mysql = conn.cursor()
 
-    buffer = ""
-
-    content = args.content
-    name = args.name
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
+    content = args.content
+    name = args.name
+    list = args.list
+    try:
+        if content:
+           pass
+        elif name:
+           pass
+        elif list:
+           pass
+        else:
+           raise
+    except Exception, ex:
+	logger.error(" At least one from 'name' or 'content' required while looking for any object.")
+	logger.info(" Usages: %s show -h" % myname)
+	sys.exit(1)
 
     # Parse hostname
 
@@ -150,37 +129,13 @@ def check(args):
         elif content:
 	    search = content
             sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, search)
-	else:
+	elif list:
             sql = """ select * from records where domain_id='%s' """ % (zoneid)
-	    #raise
     except Exception, ex:
         logger.error(" Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
         sys.exit(1)
 
-    try:
-        mysql.execute(sql)
-        result = ''
-        rows = ''
-        x = PrettyTable(["Record Name", "Record Type", "Result Value"])
-        x.align["Record Name"] = "l" # Left align city names
-        x.padding_width = 1 # One space between column edges and contents (default)
-        rows=mysql.fetchall()
-        mysql.close()
-        conn.close()
-        if rows:
-            for fields in rows:
-                domain_id = fields[1]
-                name = fields[2]
-                type = fields[3]
-                content = fields[4]
-                ttl = fields[5]
-		x.add_row([name, type, content])
-            print x
-        else:
-            raise
-    except Exception, ex:
-        logger.error(" Error while looking '%s', this may cause if you are trying to search incorrect 'object', which is not present into the zone db" % search)
-	sys.exit(1)
+    print check(sql)
 
 def addrecord(args):
     """ Connects to the zone specified by the user and add record to its fields. """
@@ -327,11 +282,12 @@ def main():
     subparsers = parser.add_subparsers()
 
     # toggle show record
-    parser_show = subparsers.add_parser('show',help="show's your defined search from given zones")
+    parser_show = subparsers.add_parser('show',help="show's your defined search from given zone")
     parser_show.add_argument("-z", "--zone", help="Set the zone to be check",required=True)
     parser_show.add_argument("-n", "--name", help="The record name to be check",required=False)
     parser_show.add_argument("-c", "--content", help="The record value or ip address to be check",required=False)
-    parser_show.set_defaults(func=check)
+    parser_show.add_argument("-l", "--list", action='store_true', help="List all record values for specified zone",required=False)
+    parser_show.set_defaults(func=show)
 
     # toggle add record
     parser_add  = subparsers.add_parser('add', help="Add the given record to the zone")
