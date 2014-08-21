@@ -39,9 +39,6 @@
     https://github.com/junaid18183/zonemanage
 '''
 
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("__bindadmin__")
 from lib.bind import *
 myname = os.path.basename(__file__)
 

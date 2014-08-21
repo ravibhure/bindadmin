@@ -10,8 +10,7 @@ try:
 except ImportError:
     sys.exit("The python MySQLdb module is required")
 import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("__bindadmin__")
+from colorlog import ColoredFormatter
 
 named_file = '/etc/named.conf'
 
@@ -26,6 +25,22 @@ authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
 
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
+
+def setup_logger():
+    LOG_LEVEL = logging.DEBUG
+    LOGFORMAT = "  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+
+    logging.root.setLevel(LOG_LEVEL)
+    formatter = ColoredFormatter(LOGFORMAT)
+    stream = logging.StreamHandler()
+    stream.setLevel(LOG_LEVEL)
+    stream.setFormatter(formatter)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(LOG_LEVEL)
+    logger.addHandler(stream)
+    return logger
+
+logger =  setup_logger()
 
 def load_config_file():
     ''' Load Config File order(first found is used): ENV, CWD, HOME, /etc/bindadmin '''
@@ -341,8 +356,8 @@ def dnsupdate(zone):
     try:
         if syscall(cmd):
            logger.info("Successfully updated '%s' zone" % zone)
-	   if os.path.exists(nstemplate):  # verify if file is exists
-	      os.unlink(nstemplate)   # delete the tempfile
+	   if os.path.isfile(nstemplate):  # verify if file is exists
+	      os.remove(nstemplate)   # delete the tempfile
         else:
            raise
     except Exception, ex:

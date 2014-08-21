@@ -2,3 +2,4 @@ MySQL-python
 ConfigParser
 argparse
 prettytable
+colorlog
