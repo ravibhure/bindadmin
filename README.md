@@ -1,6 +1,6 @@
 # BindAdmin, bind zone manager
 
-### bindadmin is demand to manage bind zones, which can be stored in mysql database and called to build zone file when required, at the same time it should be able to add/update/delete and record type and maintain the logging activity.
+#### bindadmin is demand to manage bind zones, which can be stored in mysql database and called to build zone file when required, at the same time it should be able to add/update/delete and record type and maintain the logging activity.
 
           1)    We provide
             Type=A,CNAME
@@ -16,14 +16,49 @@
           7)    git commit and push
           8)    rndc freeze (not to update)
 
+### Installation
+
+#### Setup database
+
+      mysqladmin create glamdns
+      mysql -Bse "create user 'dnsdb'@'localhost' identified by 'password'"
+      mysql -Bse "grant all privileges on dnsdb.* to 'dnsdb'@'localhost'"
 
 ### Usages
 
-      [root@localhost bindadmin]# ./bindmanager.py
+      [root@ggvaapp07vm2 bindadmin]# ./bindmanager.py
       usage: bindmanager.py [-h] {add,delete,show} ...
       bindmanager.py: error: too few arguments
 
-      [root@localhost bindadmin]# ./bindmanager.py  add -h
+      [root@ggvaapp07 bindadmin]# ./bindmanager.py -h
+      usage: bindmanager.py [-h] {add,delete,show} ...
+
+      Queries the zone database for Build information
+
+      positional arguments:
+        {add,delete,show}
+          show             shows your defined search from given zone
+          add              Add the given record to the zone
+          delete           Remove the given record from the zone(s)
+
+      optional arguments:
+        -h, --help         show this help message and exit
+
+      To know more, write to: ravibhure@gmail.com
+
+      [root@ggvaapp07 bindadmin]# ./bindmanager.py show -h
+      usage: bindmanager.py show [-h] -z ZONE [-n NAME] [-c CONTENT] [-l]
+
+      optional arguments:
+        -h, --help            show this help message and exit
+        -z ZONE, --zone ZONE  Set the zone to be check
+        -n NAME, --name NAME  The record name to be check
+        -c CONTENT, --content CONTENT
+                              The record value or ip address to be check
+        -l, --list            List all record values for specified zone
+
+
+      [root@ggvaapp07 bindadmin]# ./bindmanager.py add -h
       usage: bindmanager.py add [-h] -n NAME -t TYPE -c CONTENT [-tl TTL] -z ZONE
 
       optional arguments:
@@ -35,7 +70,8 @@
         -tl TTL, --ttl TTL    The record ttl to add for record name
         -z ZONE, --zone ZONE  Set the zone to be updated
 
-      [root@localhost bindadmin]# ./bindmanager.py  delete -h
+
+      [root@ggvaapp07 bindadmin]# ./bindmanager.py delete -h
       usage: bindmanager.py delete [-h] -n NAME -t TYPE [-c CONTENT] -z ZONE
 
       optional arguments:
@@ -45,16 +81,6 @@
         -c CONTENT, --content CONTENT
                               The record value to add for record name
         -z ZONE, --zone ZONE  Set the zone to be updated
-
-      [root@localhost bindadmin]# ./bindmanager.py  show -h
-      usage: bindmanager.py show [-h] -z ZONE [-n NAME] [-c CONTENT]
-
-      optional arguments:
-        -h, --help            show this help message and exit
-        -z ZONE, --zone ZONE  Set the zone to be check
-        -n NAME, --name NAME  The record name to be check
-        -c CONTENT, --content CONTENT
-                              The record value or ip address to be check
 
 
 ### TODO
@@ -71,3 +97,5 @@
       If deleting 'A' record, check and remove if there are any 'CNAME' records with that 'A' records.
 
       Add activity event records to log file and to database.
+
+      Find and List all broken records, those are not resolve from your zones/domains
