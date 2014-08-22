@@ -62,7 +62,7 @@ def zonedetails(zone):
         conn.close()
         return id
     except Exception, ex:
-        logger.error(" Error fetching result - no '%s' zone available, please provide correct zone name" % zone)
+        logger.error("Fetching result - no '%s' zone available, please provide correct zone name" % zone)
         sys.exit(1)
 
 def execute(sql):
@@ -83,7 +83,7 @@ def execute(sql):
         conn.close()
 	return "Task Done"
     except Exception, ex:
-        logger.error(" Error while updating database")
+        logger.error("While updating database")
         sys.exit(1)
 
 def show(args):
@@ -108,8 +108,8 @@ def show(args):
         else:
            raise
     except Exception, ex:
-	logger.error(" At least one from 'name' or 'content' required while looking for any object.")
-	logger.info(" Usages: %s show -h" % myname)
+	logger.error("At least one from 'name' or 'content' required while looking for any object.")
+	logger.info("Usages: %s show -h" % myname)
 	sys.exit(1)
 
     # Parse hostname
@@ -129,7 +129,7 @@ def show(args):
 	elif list:
             sql = """ select * from records where domain_id='%s' """ % (zoneid)
     except Exception, ex:
-        logger.error(" Error - While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
+        logger.error("While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
         sys.exit(1)
 
     print check(sql)
@@ -163,7 +163,7 @@ def addrecord(args):
                             else:
                                 raise
                         except Exception, ex:
-                            logger.error(" Error - '%s' is not a valid ip" % content)
+                            logger.error("'%s' is not a valid ip" % content)
 			    sys.exit(1)
                       elif type == 'CNAME':
                         try:
@@ -176,7 +176,7 @@ def addrecord(args):
                             else:
                                 raise
                         except Exception, ex:
-                            logger.error(" Error - '%s' is not a valid hostname" % content)
+                            logger.error("'%s' is not a valid hostname" % content)
                             sys.exit(1)
                       else:
                         validation(zoneid, name, type, content)
@@ -184,7 +184,7 @@ def addrecord(args):
                   else:
                       raise
               except Exception, ex:
-                  logger.error(" Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
+                  logger.error("'%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
                   sys.exit(1)
             else:
                 raise
@@ -195,7 +195,7 @@ def addrecord(args):
             else:
                 raise
     except Exception, ex:
-        logger.error(" Error - '%s', probabily it is not valid hostname/ip" % name)
+        logger.error("'%s', probabily it is not valid hostname/ip" % name)
         sys.exit(1)
 
     if args.ttl:
@@ -220,7 +220,7 @@ def addrecord(args):
         revertzone(zone)
         reloadzone(zone)
         raise
-        logger.error(" Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
         sys.exit(1)
 
 
@@ -246,7 +246,7 @@ def deleterecord(args):
             else:
                 raise
         except Exception, ex:
-            logger.error(" Error - '%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
+            logger.error("'%s' is not a valid record type, reffer one from '%s'" % (type, SUPPORTED_RECORD_TYPES))
             sys.exit(1)
     else:
         sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
@@ -267,7 +267,7 @@ def deleterecord(args):
         revertzone(zone)
         reloadzone(zone)
         raise
-        logger.error(" Error: in '%s' zone file, please check, we have reverted to fixed it" % zone)
+        logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
         sys.exit(1)
 
 def main():
