@@ -9,6 +9,7 @@ try:
     import MySQLdb
 except ImportError:
     sys.exit("The python MySQLdb module is required")
+
 import logging
 from colorlog import ColoredFormatter
 
@@ -23,13 +24,21 @@ dnsmaster = 'localhost'
 archive_dir = '/var/tmp/zonemanage_archive/'
 authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
-
+LOGFILE='/var/log/bindadmin.log'
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
+
+def getlogin():
+    try:
+        user = os.getlogin()
+    except OSError, e:
+        user = pwd.getpwuid(os.geteuid())[0]
+    return user
 
 def setup_logger():
     LOG_LEVEL = logging.DEBUG
-    LOGFORMAT = " %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(asctime)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
-    LOG_PATH = '/var/log/bindadmin.log'
+    LOG_USER = {'user': getlogin()}
+    LOGFORMAT = "  %(log_color)s%(asctime)s %(log_color)s%(name)s %(log_color)s%(user)-8s%(reset)s %(log_color)s%(levelname)-8s%(reset)s: %(log_color)s%(message)s%(reset)s"
+    LOG_PATH = LOGFILE
 
     logging.root.setLevel(LOG_LEVEL)
     formatter = ColoredFormatter(LOGFORMAT)
@@ -39,10 +48,11 @@ def setup_logger():
     fstream = logging.FileHandler(LOG_PATH)
     fstream.setLevel(LOG_LEVEL)
     fstream.setFormatter(formatter)
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('BINDADMIN')
     logger.setLevel(LOG_LEVEL)
     logger.addHandler(fstream)
     logger.addHandler(stream)
+    logger = logging.LoggerAdapter(logger, LOG_USER)
     return logger
 
 logger =  setup_logger()
@@ -71,7 +81,7 @@ def load_mycnf():
         else:
             raise
     except Exception, e:
-        logger.error(" Error - config file not found...")
+        logger.error("Config file not found...")
         sys.exit(1)
 
     # We support two forms of database user passwords in config.cnf, both pass= and password=,
@@ -151,7 +161,7 @@ def dbconnection():
         conn = MySQLdb.Connection(user=user, passwd=passwd, db=db, host=host)
 	return conn
     except MySQLdb.OperationalError, e:
-        logger.error(" Error - While connecting to database...")
+        logger.error("While connecting to database...")
         sys.exit(1)
 
 def fixup_z_type(z_type):
@@ -223,7 +233,7 @@ def syscall(cmd):
         else:
             return False
     except Exception, e:
-        logger.error(" Shell command failed with following error: ")
+        logger.error("Command failed with following error: ")
         sys.exit("Error: %s" % e)
 
 def archivezone(zone):
@@ -240,7 +250,7 @@ def archivezone(zone):
         else:
            raise
     except Exception, ex:
-        logger.error(" Error: while backup '%s' zone" % zone)
+        logger.error("While backup '%s' zone" % zone)
         sys.exit(1)
 
 def revertzone(zone):
@@ -258,7 +268,7 @@ def revertzone(zone):
         else:
            raise
     except Exception, ex:
-        logger.error(" Error: while reverted '%s' zone from '%s'" % (zone, archive_file))
+        logger.error("While reverted '%s' zone from '%s'" % (zone, archive_file))
         sys.exit(1)
 
 def reloadzone(zone):
@@ -271,7 +281,7 @@ def reloadzone(zone):
         else:
            raise
     except Exception, ex:
-        logger.error(" Error: while reload '%s' zone" % zone)
+        logger.error("While reload '%s' zone" % zone)
         sys.exit(1)
 
 def check(sql):
@@ -308,7 +318,7 @@ def check(sql):
         else:
             raise
     except Exception, ex:
-        logger.error(" This may be if you are trying to search incorrect 'object', which is not present into the zone db.")
+        logger.error("This may be if you are trying to search incorrect 'object', which is not present into the zone db.")
         sys.exit(1)
 
 def check_zone(zonepath, zone):
@@ -325,7 +335,7 @@ def check_zone(zonepath, zone):
        else:
           raise
     except Exception, ex:
-        logger.error(" Error: '%s' zone file does not exist at '%s', please check or adjust your zonepath" % (zone, zonepath))
+        logger.error("'%s' zone file does not exist at '%s', please check or adjust your zonepath" % (zone, zonepath))
         sys.exit(1)
 
     if syscall(cmd):
@@ -350,7 +360,7 @@ def nsfile(action, zone, data):
         file.close()
         return 0
     except Exception, ex:
-        logger.error(" Error while write data to nsupdate template '%s' file" % nstemplate)
+        logger.error("While write data to nsupdate template '%s' file" % nstemplate)
         sys.exit(1)
 
 def dnsupdate(zone):
@@ -361,12 +371,11 @@ def dnsupdate(zone):
     try:
         if syscall(cmd):
            logger.info("Successfully updated '%s' zone" % zone)
-	   if os.path.isfile(nstemplate):  # verify if file is exists
-	      os.remove(nstemplate)   # delete the tempfile
+	   os.remove(nstemplate)   # delete the tempfile
         else:
            raise
     except Exception, ex:
-        logger.error(" Error: while nsupdate to '%s' zone" % zone)
+        logger.error("While nsupdate to '%s' zone" % zone)
         sys.exit(1)
 
 def validation(zoneid, name, zone, type, content):
@@ -395,10 +404,10 @@ def validation(zoneid, name, zone, type, content):
               type = fields[3]
               contentm = fields[4]
               if content == contentm:
-                 logger.error(" Error - '%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
+                 logger.error("'%s' record for '%s' with similar content '%s' already found in zone db, please check and try again!" % (type, name, content))
                  sys.exit(1)
               else:
-                 logger.warning(" '%s' record for '%s' with different content '%s' already found in zone db." % (type, name, contentm))
+                 logger.warning("'%s' record for '%s' with different content '%s' already found in zone db." % (type, name, contentm))
     except Exception, ex:
         return 0
     else:
