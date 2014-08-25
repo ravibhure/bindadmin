@@ -92,7 +92,7 @@ def importZone(args):
        sys.exit("Error: %s not present in %s, please check" % (zone, named_file))
 
     f = open('sql/' + zone + '.sql', "w")
-    cmd = 'dig %s -t AXFR' % zone
+    cmd = 'dig @%s %s -t AXFR' % (dnsmaster, zone)
     if getAXFR(cmd):
        createSQLsoa(zone, 'SOA', f)
        for type in SUPPORTED_RECORD_TYPES:
