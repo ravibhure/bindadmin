@@ -99,3 +99,16 @@
       Add activity event records to log file and to database.
 
       Find and List all broken records, those are not resolve from your zones/domains
+
+      Replace record type 'A' to 'CNAME'
+        Condition match found: If adding 'A' record, and the IP already assinged to another hostname, warn and ask to user
+        > Do you want to add cname against the match found or continue
+        If yes, add record to cname, if no go with what your wants
+        add/delete (if it found any existing record set for that content)
+
+      If deleting record 'anytype' (without giving -c content), if match result more than one,
+        ask user to provide input Y/N , to delete entire match found.
+
+      Search wildcard or nearest match while showing search result.
+
+      Replace 'insert' with 'update' sql statement in zone2sql
