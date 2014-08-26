@@ -11,7 +11,6 @@ except ImportError:
     sys.exit("The python MySQLdb module is required")
 
 import logging
-from colorlog import ColoredFormatter
 
 named_file = '/etc/named.conf'
 
@@ -37,11 +36,19 @@ def getlogin():
 def setup_logger():
     LOG_LEVEL = logging.DEBUG
     LOG_USER = {'user': getlogin()}
-    LOGFORMAT = "  %(log_color)s%(asctime)s %(log_color)s%(name)s %(log_color)s%(user)-8s%(reset)s %(log_color)s%(levelname)-8s%(reset)s: %(log_color)s%(message)s%(reset)s"
     LOG_PATH = LOGFILE
 
     logging.root.setLevel(LOG_LEVEL)
-    formatter = ColoredFormatter(LOGFORMAT)
+    # Try to load the colored log and use it on success.
+    # Else we'll use the SIMPLE_FORMAT
+    try:
+        from colorlog import ColoredFormatter
+        LOGFORMAT = "  %(log_color)s%(asctime)s %(log_color)s%(name)s %(log_color)s%(user)-8s%(reset)s %(log_color)s%(levelname)-8s%(reset)s: %(log_color)s%(message)s%(reset)s"
+        formatter = ColoredFormatter(LOGFORMAT)
+    except ImportError:
+        # Take the normal one instead.
+        LOGFORMAT = "  %(asctime)s %(name)s %(user)-8s %(levelname)-8s: %(message)s"
+        formatter = logging.Formatter(LOGFORMAT)
     stream = logging.StreamHandler()
     stream.setLevel(LOG_LEVEL)
     stream.setFormatter(formatter)
@@ -312,9 +319,7 @@ def check(sql):
                 content = fields[4]
                 ttl = fields[5]
                 x.add_row([name, type, content])
-            #print x
             return x
-            return (name, type, content)
         else:
             raise
     except Exception, ex:
