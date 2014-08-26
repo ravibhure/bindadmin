@@ -42,56 +42,11 @@
 from lib.bind import *
 myname = os.path.basename(__file__)
 
-def zonedetails(zone):
-    """
-    Executes a mysql command by sending a query to a MySQL database server.
-    """
-
-    # Get the zone id
-    conn = dbconnection()
-    mysql = conn.cursor()
-    try:
-	sql = """ select * from domains where name="%s" """ % zone
-        mysql.execute(sql)
-        rows = ''
-        rows=mysql.fetchall()
-        for fields in rows:
-            id = fields[0]
-            name = fields[1]
-        mysql.close()
-        conn.close()
-        return id
-    except Exception, ex:
-        logger.error("Fetching result - no '%s' zone available, please provide correct zone name" % zone)
-        sys.exit(1)
-
-def execute(sql):
-    """
-    Executes a mysql command by sending a query to a MySQL database server.
-    """
-
-    conn = dbconnection()
-    mysql = conn.cursor()
-
-    buffer = ""
-    # Database action
-
-    try:
-        mysql.execute(sql)
-        rows = ''
-        mysql.close()
-        conn.close()
-	return 0
-    except Exception, ex:
-        logger.error("While updating database")
-        sys.exit(1)
-
 def show(args):
     """
     Figure out server IP or name for a given 'zone'.
     Raise an exception if no suitable record is found.
     """
-
 
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
