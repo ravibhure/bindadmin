@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
 from lib.bind import *
-#import sys,os,re,argparse
 import subprocess
-#import fileinput
 import csv
 
 import tempfile
@@ -89,7 +87,7 @@ def importZone(args):
     if v_zone:
        pass
     else:
-       sys.exit("Error: %s not present in %s, please check" % (zone, named_file))
+       sys.exit("Error: '%s' not present in '%s', please check..." % (zone, named_file))
 
     f = open('sql/' + zone + '.sql', "w")
     cmd = 'dig @%s %s -t AXFR' % (dnsmaster, zone)

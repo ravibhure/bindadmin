@@ -191,11 +191,13 @@ def parse_named_file(named_file, zone):
         pat = re.compile('zone\s+[\'"]?(\S+?)[\'"]?\s*IN?\s*{.*?type\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?file\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?;', re.DOTALL | re.MULTILINE)
         for z in pat.finditer(f):
             z = list(z.groups())
-            z[1] = fixup_z_type(z[1])
-            if z[0] == zone:
+            if z[0] == zone and z[1] == 'slave':
+                print "Gotcha.. '%s' zone found, but sorry we can't supports slave now." % zone
+                sys.exit(1)
+            # type should be 'master' or 'native'
+            elif z[0] == zone:
                 return z
-                #return True
-
+                return True
     except Exception, e:
         raise
     except Exception, e:
