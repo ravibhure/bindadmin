@@ -224,8 +224,10 @@ def find_hostname(zone, name):
     return name
 
 def revName(address):
-    """ Test """
-    #reverse fields in IP address for use with in-addr.arpa query
+    """
+    reverse fields in IP address for use with in-addr.arpa query
+    """
+
     fields = address.split('.')
     fields.reverse()
     flippedaddr = '.'.join(fields)
