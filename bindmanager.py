@@ -81,7 +81,7 @@ def execute(sql):
         rows = ''
         mysql.close()
         conn.close()
-	return "Task Done"
+	return 0
     except Exception, ex:
         logger.error("While updating database")
         sys.exit(1)
@@ -205,7 +205,7 @@ def addrecord(args):
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
     result = execute(sql)
-    logger.info("%s - added record '%s' successfully" % (result, name))
+    logger.info("Successfully added record '%s in db." % name)
     action = 'add'
     data = "%s.%s. %s %s %s" % (name, zone, ttl, type, content)
     nsfile(action, zone, data)
@@ -215,6 +215,7 @@ def addrecord(args):
     if check_zone(zonepath, zone):
         logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
+        logger.info("Successfully added record '%s'" % name)
         return True
     else:
         revertzone(zone)
@@ -252,7 +253,7 @@ def deleterecord(args):
         sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
 
     result = execute(sql)
-    logger.info("%s - removed record(s) '%s' successfully" % (result, name))
+    logger.info("Successfully removed record '%s' from db." % name)
     ttl = '86400'
     action = 'delete'
     nsfile(action, zone, data)
@@ -262,6 +263,7 @@ def deleterecord(args):
     if check_zone(zonepath, zone):
         logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
+        logger.info("Successfully removed record '%s'" % name)
         return True
     else:
         revertzone(zone)
