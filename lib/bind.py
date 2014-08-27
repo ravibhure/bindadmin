@@ -14,7 +14,6 @@ import logging
 
 named_file = '/etc/named.conf'
 
-rndckey = 'rndc-key:ZwVrlhCWkVyRStQxe0ajsQ=='
 nsupdate = '/usr/bin/nsupdate'
 zonepath = '/var/named/chroot/var/named/'
 rndc = '/usr/sbin/rndc'
@@ -99,28 +98,63 @@ def load_mycnf():
         try:
             passwd = config_get(parser, 'database', 'dbpass')
         except (ConfigParser.NoOptionError):
-            return False
+            print "No section '%s' or '%s' in config.cfg Aborting." % ('dbpassword', 'dbpass')
+            sys.exit(2)
 
     # If config.cnf doesn't specify a database user, return false
     try:
         user = config_get(parser, 'database', 'dbuser')
+        if user:
+	   pass
+	else:
+	   raise
     except (ConfigParser.NoOptionError):
-        return False
+        print "No section '%s' in config.cfg Aborting." % 'dbuser'
+        sys.exit(2)
 
     # If config.cnf doesn't specify a database name, return false
     try:
         db = config_get(parser, 'database', 'dbname')
+        if db:
+	   pass
+	else:
+	   raise
     except (ConfigParser.NoOptionError):
-        return False
+        print "No section '%s' in config.cfg Aborting." % 'dbname'
+        sys.exit(2)
 
     # If config.cnf doesn't specify a database host, return false
     try:
         host = config_get(parser, 'database', 'dbhost')
+        if host:
+	   pass
     except (ConfigParser.NoOptionError):
-        return False
-        
-    #conn = MySQLdb.Connection(db=database, host=host, user=user, passwd=password)        
-    creds = dict(user=user,passwd=passwd,db=db,host=host)
+        print "No section '%s' in config.cfg Aborting." % 'dbhost'
+        sys.exit(2)
+
+    # If config.cnf doesn't specify a securekey keyname, return false
+    try:
+        keyname = config_get(parser, 'securekey', 'keyname')
+        if keyname:
+	   pass
+	else:
+	   raise
+    except (ConfigParser.NoOptionError):
+        print "No section '%s' in config.cfg Aborting." % 'keyname'
+        sys.exit(2)
+
+    # If config.cnf doesn't specify a securekey key, return false
+    try:
+        key = config_get(parser, 'securekey', 'key')
+        if key:
+	   pass
+	else:
+	   raise
+    except (ConfigParser.NoOptionError):
+        print "No section '%s' in %s config.cfg Aborting." % 'key'
+        sys.exit(2)
+
+    creds = dict(user=user,passwd=passwd,db=db,host=host,keyname=keyname,key=key)
     return creds
  
 
@@ -170,6 +204,39 @@ def dbconnection():
     except MySQLdb.OperationalError, e:
         logger.error("While connecting to database...")
         sys.exit(1)
+
+def parse_key_file(key_file):
+    """
+    Name server secure key file, in below format
+
+    key "rndc-key" {
+            algorithm hmac-md5;
+            secret "ZwVrlhCWkVyRStQxe0ajsQ==";
+    };
+
+    We need expect to return key pair in well formated
+    >>   rndc-key:ZwVrlhCWkVyRStQxe0ajsQ==
+    """
+
+    try:
+        f = open(key_file, "r").read()
+        pat = re.compile('key\s+[\'"]?(\S+?)[\'"]?\s*{.*?algorithm\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?secret\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?};', re.DOTALL | re.MULTILINE)
+        for key in pat.finditer(f):
+            key = list(key.groups())
+            key[1] = fixup_key_algo(key[1])
+            if key[1]:
+                return key[0] + ':' + key[2]
+        raise Exception(key_file)
+
+    except Exception, e:
+        raise
+    except Exception, e:
+        sys.stderr.write("Can't parse a keyfile %s: %s\n" % (key_file, e))
+        sys.exit(1)
+
+def fixup_key_algo(key_algo):
+    if key_algo == "hmac-md5":
+      return key_algo == "hmac-md5" and "HMAC-MD5.SIG-ALG.REG.INT" or key_algo
 
 def fixup_z_type(z_type):
      #return z_type == "master" and "master" or z_type
@@ -225,7 +292,7 @@ def find_hostname(zone, name):
 
 def revName(address):
     """
-    reverse fields in IP address for use with in-addr.arpa query
+    Reverse fields in IP address for use with in-addr.arpa query
     """
 
     fields = address.split('.')
@@ -374,6 +441,12 @@ def nsfile(action, zone, data):
 
 def dnsupdate(zone):
     """ NSupdate your Zone """
+
+    # Get the NS secure keys
+    myns_keys = load_mycnf()
+    keyname = myns_keys["keyname"]
+    key = myns_keys["key"]
+    rndckey = keyname + ':' + key
 
     cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nstemplate)
 
