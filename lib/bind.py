@@ -143,7 +143,7 @@ def load_mycnf():
         print "No section '%s' in config.cfg Aborting." % 'keyname'
         sys.exit(2)
 
-    # If config.cnf doesn't specify a securekey key, return false
+    # If config.cnf doesn't specify a securekey key or keyfile, return false
     try:
         key = config_get(parser, 'securekey', 'key')
         if key:
@@ -151,8 +151,12 @@ def load_mycnf():
 	else:
 	   raise
     except (ConfigParser.NoOptionError):
-        print "No section '%s' in %s config.cfg Aborting." % 'key'
-        sys.exit(2)
+        try:
+            keyfile = config_get(parser, 'securekey', 'keyfile')
+	    key = parse_key_file(keyfile, keyname)
+        except (ConfigParser.NoOptionError):
+            print "No section '%s' or '%s' in config.cfg Aborting." % ('key', 'keyfile')
+            sys.exit(2)
 
     creds = dict(user=user,passwd=passwd,db=db,host=host,keyname=keyname,key=key)
     return creds
@@ -205,7 +209,7 @@ def dbconnection():
         logger.error("While connecting to database...")
         sys.exit(1)
 
-def parse_key_file(key_file):
+def parse_key_file(key_file, key_name):
     """
     Name server secure key file, in below format
 
@@ -224,9 +228,10 @@ def parse_key_file(key_file):
         for key in pat.finditer(f):
             key = list(key.groups())
             key[1] = fixup_key_algo(key[1])
-            if key[1]:
-                return key[0] + ':' + key[2]
-        raise Exception(key_file)
+            if key[1] and key[0] == key_name:
+                return key[2]
+        sys.stderr.write("Can't parse '%s' in keyfile '%s' or bad key algorithm\n" % (key_name, key_file))
+        sys.exit(1)
 
     except Exception, e:
         raise
