@@ -100,6 +100,9 @@ def addrecord(args):
     # Parse hostname
     name = find_hostname(zone, name)
 
+    # Validation
+    gitInit(zonepath)
+
     # Validation..valdation and more
     try:
         if name:
@@ -159,17 +162,18 @@ def addrecord(args):
 	ttl = '86400'
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
+    revertzone(zone)
     result = execute(sql)
     logger.info("Successfully added record '%s in db." % name)
     action = 'add'
     data = "%s.%s. %s %s %s" % (name, zone, ttl, type, content)
     nsfile(action, zone, data)
 
-    archivezone(zone)
     dnsupdate(zone)
     if check_zone(zonepath, zone):
         logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
+        archivezone(zone)
         logger.info("Successfully added record '%s'" % name)
         return True
     else:
@@ -178,7 +182,6 @@ def addrecord(args):
         raise
         logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
         sys.exit(1)
-
 
 def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
@@ -189,6 +192,9 @@ def deleterecord(args):
 
     # Parse hostname
     name = find_hostname(zone, name)
+
+    # Validation
+    gitInit(zonepath)
 
     if args.content and type:
         content = args.content
@@ -207,17 +213,18 @@ def deleterecord(args):
     else:
         sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
 
+    revertzone(zone)
     result = execute(sql)
     logger.info("Successfully removed record '%s' from db." % name)
     ttl = '86400'
     action = 'delete'
     nsfile(action, zone, data)
 
-    archivezone(zone)
     dnsupdate(zone)
     if check_zone(zonepath, zone):
         logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
+        archivezone(zone)
         logger.info("Successfully removed record '%s'" % name)
         return True
     else:

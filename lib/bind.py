@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import re,argparse,sys,os,time,ConfigParser
+import re,argparse,sys,os,time,ConfigParser,subprocess
 import tempfile
 from prettytable import PrettyTable
 file = tempfile.NamedTemporaryFile(delete=False)
@@ -300,11 +300,8 @@ def revName(address):
     Reverse fields in IP address for use with in-addr.arpa query
     """
 
-    fields = address.split('.')
-    fields.reverse()
-    flippedaddr = '.'.join(fields)
-    name = flippedaddr
-    return "%s.in-addr.arpa." % name
+    flippedaddr = '.'.join(reversed(address.split('.')))
+    return "%s.in-addr.arpa." % flippedaddr
 
 def syscall(cmd):
     """  Run system commands """
@@ -320,38 +317,34 @@ def syscall(cmd):
         sys.exit("Error: %s" % e)
 
 def archivezone(zone):
-    """ Backup your Zone """
-    if not os.path.isdir(archive_dir):
-      os.makedirs(archive_dir)
-    zone_file = os.path.join(zonepath, zone)
-    archive_file = os.path.join(archive_dir, zone)
-    cmd = "cp -f %s %s-%s" % (zone_file, archive_file, now)
+    """ Backup your Zone with Git """
+
+    gitInit(zonepath)
+    message="Updated %s with record" % zone
 
     try:
-        if syscall(cmd):
-           logger.info("Successfully backed up '%s' zone to '%s-%s'" % (zone, archive_file, now))
-        else:
-           raise
+        if gitAdd(zone, zonepath):
+	   if gitCommit(message, zonepath):
+	      # gitPush(zonepath)
+	      latestcommit = gitHEAD(zonepath)
+              #logger.info("Successfully commited - %s" % latestcommit.strip())
+              logger.info("Successfully commited - %s" % latestcommit)
     except Exception, ex:
-        logger.error("While backup '%s' zone" % zone)
+        logger.error("While adding '%s' zone to git, please fix manually to verify" % zone)
         sys.exit(1)
 
 def revertzone(zone):
     """ Revert your Zone """
-    if not os.path.isdir(archive_dir):
-      os.makedirs(archive_dir)
-    return None
-    zone_file = os.path.join(zonepath, zone)
-    archive_file = os.path.join(archive_dir, zone)
-    cmd = "cp -f %s-%s %s" % (archive_file, now, zone_file)
+
+    gitInit(zonepath)
 
     try:
-        if syscall(cmd):
-           logger.info("Successfully reverted '%s' zone to '%s'" % (zone, zone_file))
-        else:
-           raise
+        if gitReset(zonepath):
+           gitClean(zonepath)
+           gitPull(zonepath)
+           logger.info("Successfully reverted '%s' zone from git" % zone)
     except Exception, ex:
-        logger.error("While reverted '%s' zone from '%s'" % (zone, archive_file))
+        logger.error("While reverted '%s' zone from git" % zone)
         sys.exit(1)
 
 def reloadzone(zone):
@@ -362,9 +355,10 @@ def reloadzone(zone):
         if syscall(cmd):
            logger.info("Successfully reloaded '%s' zone" % zone)
         else:
+           revertzone(zone)
            raise
     except Exception, ex:
-        logger.error("While reload '%s' zone" % zone)
+        logger.error("While reload '%s' zone, hence reload to latest HEAD" % zone)
         sys.exit(1)
 
 def check(sql):
@@ -544,3 +538,84 @@ def validation(zoneid, name, zone, type, content):
     else:
         return 0
 
+# ++ =================================================================================== ++
+# Git for BindAdmin
+# ++ =================================================================================== ++
+
+def gitInit(zonepath):
+    """ Validate git enabled for zonepath """
+
+    git_dir = os.path.join(zonepath, '.git')
+    if not os.path.isdir(git_dir):
+       logger.error("git not initialized in '%s'" % zonepath)
+       sys.exit(1)
+
+def gitAdd(zone, zonepath):
+    try:
+        cmd = ['git', 'add', zone]
+        p = subprocess.Popen(cmd, cwd=zonepath)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While added to git")
+        sys.exit(1)
+
+def gitCommit(message, zonepath):
+    try:
+        cmd = ['git', 'commit', '-m', message]
+        p = subprocess.Popen(cmd, cwd=zonepath, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While Commit to git")
+        sys.exit(1)
+
+def gitReset(zonepath):
+    try:
+        cmd = ['git', 'reset', 'HEAD', '--hard']
+        p = subprocess.Popen(cmd, cwd=zonepath, stdout=subprocess.PIPE)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While git reset to HEAD")
+        sys.exit(1)
+
+def gitClean(zonepath):
+    try:
+        cmd = ['git', 'clean', '-f']
+        p = subprocess.Popen(cmd, cwd=zonepath)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While git clean untracked files")
+        sys.exit(1)
+
+def gitPull(zonepath):
+    try:
+        cmd = ['git', 'pull', 'origin', 'master']
+        p = subprocess.Popen(cmd, cwd=zonepath)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While git pull origin master")
+        sys.exit(1)
+
+def gitPush(zonepath):
+    try:
+        cmd = ['git', 'push', '-u', 'origin', 'HEAD']
+        p = subprocess.Popen(cmd, cwd=zonepath)
+        p.wait()
+        return True
+    except Exception, ex:
+        logger.error("While git push to upstream")
+        sys.exit(1)
+
+def gitHEAD(zonepath):
+    try:
+        cmd = ['git', 'log', '--oneline', '-1']
+        p = subprocess.Popen(cmd, cwd=zonepath, stdout=subprocess.PIPE)
+        p.wait()
+        return p.stdout.read().strip()
+    except Exception, ex:
+        logger.error("While looking for latest git commit")
+        sys.exit(1)
