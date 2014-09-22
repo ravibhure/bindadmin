@@ -252,6 +252,16 @@ def exportZone(args):
 
     # Process args live
     if args.live:
+        print "Step through stored zones in db: "
+        ans=raw_input("Do you really want to step through the zones in the database?[N,y]: ")
+        if ans in ['y','Y','yes','Yes','YES']:
+          print "Thanks..."
+          print "We are proceed your request to load this zone to zonepath.. please stay until it reloads"
+          print "......."
+        else:
+          print "You typed '%s', quiting..." % ans
+          sys.exit(1)
+
 	os.system ("cp %s %s" % (zone, zonepath))
         if check_zone(zonepath, zone):
             logger.info("Sanity check went good for '%s'" % zone)
