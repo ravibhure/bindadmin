@@ -32,6 +32,25 @@ def createSQLsoa(zone, type, f):
           except Exception, ex:
               print "Error while write SOA data"
               sys.exit(1)
+# +----------------------------------------------------------------------+
+
+def createSQLns(zone, type, f):
+    with open(zone_axfr) as file:
+          try:
+              for line in file:
+                 if re.findall( "\\b"+type+"\\b", line ):
+                    fields = line.strip().split()
+                    name = fields[0].strip('.')
+                    ttl = fields[1]
+                    type = fields[3]
+                    content = fields[4].strip('.')
+                    prio = '0'
+                    sql = """ insert into supermasters (domain_id, name,type,content,ttl,prio) select id ,'%s', '%s', '%s', %s, %s from domains where name='%s'; """ % (zone,type,content,ttl,prio,zone)
+                    print >> f, (sql)
+          except Exception, ex:
+              print "Error while write data 'all'"
+              sys.exit(1)
+    f.close
 
 # +----------------------------------------------------------------------+
 
@@ -87,12 +106,13 @@ def importZone(args):
     if v_zone:
        pass
     else:
-       sys.exit("Error: '%s' not present in '%s', please check..." % (zone, named_file))
+       sys.exit("Error: '%s' not present in '%s', please check.." % (zone, named_file))
 
     f = open('sql/' + zone + '.sql', "w")
     cmd = 'dig @%s %s -t AXFR' % (dnsmaster, zone)
     if getAXFR(cmd):
        createSQLsoa(zone, 'SOA', f)
+       createSQLns(zone, 'NS', f)
        for type in SUPPORTED_RECORD_TYPES:
            createSQLall(zone, type, f)
     else:
@@ -110,7 +130,7 @@ def importZone(args):
 
     Example:
 
-    mysql> use dnsdb;
+    mysql> use dnsdb; 
     mysql> \. sql/%s.sql;
 
     """ % (zone, zone)
@@ -120,9 +140,140 @@ def importZone(args):
 def exportZone(args):
     """ Export zone information from SQL or git"""
 
-    zone = args.zone.lower()
+    conn = dbconnection()
+    mysql = conn.cursor()
 
-    print "We are not setup any stuff here"
+    buffer = ""
+
+    zone = args.zone.lower()
+    zoneid = zonedetails(zone)
+
+    myfile = '%s' % zone
+
+    # Querying soa records
+    try:
+        sql = """ select * from domains where name="%s" """ % zone
+        mysql.execute(sql)
+        rows = ''
+        rows=mysql.fetchall()
+        with open(myfile, 'w') as f:
+          f.write(";server localhost\n")
+          f.write(";zone %s.\n" % zone)
+          for fields in rows:
+              zone_name = fields[1]
+              type = fields[2]
+              first_name_server = fields[3]
+              administrative_contact = fields[4]
+              zone_serial = fields[5]
+              slave_refresh_interval = fields[6]
+              slave_retry_interval = fields[7]
+              slave_expiration_time = fields[8]
+              nxdomain_cache_time = fields[9]
+              record_ttl = fields[10]
+              ### Begin of the output generation
+              f.write("; Zone file built with the Python Tool bindmanager.py:\n")
+              f.write("$ORIGIN %s.\n" % zone_name)
+              # print("; " + __doc__.replace("\n","\n; ") )
+
+              f.write("$TTL %s  ; Default TTL\n" % record_ttl)
+
+              f.write("@       IN SOA  %s. %s. (\n" % (first_name_server, administrative_contact))
+              f.write("         %s      ; serial\n" % zone_serial)
+              f.write("         %s      ; slave refresh interval\n" % slave_refresh_interval)
+              f.write("         %s      ; slave retry interval\n" % slave_retry_interval)
+              f.write("         %s      ; slave copy expire time\n" % slave_expiration_time)
+              f.write("         %s      ; NXDOMAIN cache time\n" % nxdomain_cache_time)
+              f.write("         )")
+              f.write("\n")
+              f.write("\n")
+              f.write("; domain name servers\n")
+
+    except Exception, ex:
+        logger.error("Fetching result - no '%s' zone available, please provide correct zone name" % zone)
+        sys.exit(1)
+
+    # Querying nameserver records
+    try:
+        nsql = """ select * from supermasters where domain_id='%s' """ % (zoneid)
+        mysql.execute(nsql)
+        result = ''
+        rowsns = ''
+        rowsns=mysql.fetchall()
+        mysql.close()
+        conn.close()
+        if rowsns:
+          with open(myfile, 'a') as f:
+            f.write("\n")
+            for fields in rowsns:
+                domain_id = fields[1]
+                name = fields[2]
+                type = fields[3]
+                content = fields[4]
+                ttl = fields[5]
+                f.write("@                       IN      %s              %s.\n" % (type, content))
+            f.write("\n")
+        else:
+            raise
+    except Exception, ex:
+        logger.error("This may be if you have incorrect set of NS 'objects', which is not present into the zone db.")
+        sys.exit(1)
+
+    # Querying rest of the records
+    conn = dbconnection()
+    mysql = conn.cursor()
+    try:
+        rsql = """ select * from records where domain_id='%s' """ % (zoneid)
+        mysql.execute(rsql)
+        rowsall = ''
+        rowsall=mysql.fetchall()
+        mysql.close()
+        conn.close()
+        if rowsall:
+          with open(myfile, 'a') as f:
+            for fields in rowsall:
+                domain_id = fields[1]
+                name = fields[2]
+                type = fields[3]
+                content = fields[4]
+                ttl = fields[5]
+                name = find_hostname(zone, name)
+		if name == '':
+		  name = '@'
+                if type == 'MX':
+                  prio = fields[6]
+                  f.write("@    IN    %s    %s    %s\n" % (type, prio, content))
+                else:
+                  f.write("$TTL %s  ; Default TTL for record\n" % ttl )
+                  f.write("%s    IN    %s    %s\n" % (name, type, content))
+
+    except Exception, ex:
+        logger.error("This may be if you are trying to search incorrect records 'object'.")
+        sys.exit(1)
+
+    # Process args live
+    if args.live:
+	os.system ("cp %s %s" % (zone, zonepath))
+        if check_zone(zonepath, zone):
+            logger.info("Sanity check went good for '%s'" % zone)
+            reloadzone(zone)
+            archivezone(zone)
+            logger.info("Successfully exported zone '%s'" % zone)
+            return True
+    else:
+        print """
+
+        **** Successful: Exported zone '%s' - please check zone file at exported path ****
+
+        NOTE: You need to manually copy/validate/reload this to your zone_path.
+
+        Example:
+
+        $ ls %s
+        $ cp %s %s
+        $ %s -t %s %s %s
+        $ %s freeze %s && %s reload %s && %s thaw %s
+
+        """ % (zone, zone, zone, zonepath, checkzone, zonepath, zone, zone, rndc, zone, rndc, zone, rndc, zone)
 
 # +----------------------------------------------------------------------+
 
@@ -142,6 +293,7 @@ def main():
     # toggle add record
     parser_export  = subparsers.add_parser('export', help="Export zone information from SQL or git")
     parser_export.add_argument("-z", "--zone", help="Set the zone to be restore",required=True)
+    parser_export.add_argument("-l", "--live", action='store_true', help="Restore from DB and Put in live env to specified zone",required=False)
     parser_export.set_defaults(func=exportZone)
 
     args = parser.parse_args()

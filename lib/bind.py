@@ -23,7 +23,7 @@ archive_dir = '/var/tmp/zonemanage_archive/'
 authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
 LOGFILE='/var/log/bindadmin.log'
-SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'NS', 'TXT', 'PTR')
+SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
 
 def getlogin():
     try:
@@ -349,7 +349,7 @@ def revertzone(zone):
 
 def reloadzone(zone):
     """ Reload your Zone """
-    cmd = "%s freeze %s > /dev/null 2>&1 && %s reload > /dev/null 2>&1 %s && %s thaw %s > /dev/null 2>&1" % (rndc, zone, rndc, zone, rndc, zone)
+    cmd = "%s freeze %s >/dev/null 2>&1 && %s reload %s >/dev/null 2>&1 && %s thaw %s >/dev/null 2>&1" % (rndc, zone, rndc, zone, rndc, zone)
 
     try:
         if syscall(cmd):
