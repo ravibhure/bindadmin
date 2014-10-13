@@ -303,6 +303,20 @@ def revName(address):
     flippedaddr = '.'.join(reversed(address.split('.')))
     return "%s.in-addr.arpa." % flippedaddr
 
+def revzoneName(address):
+    """
+    >>> print revzoneName('195.185.1.1')
+    >>> print revzoneName('195.185.1.11')
+    >>> print revzoneName('195.185.1.111')
+    """
+
+    fields = address.split('.')
+    fields = fields[:3]
+    fields.reverse()
+    flippedaddr = '.'.join(fields)
+    zonename = "%s.in-addr.arpa" % flippedaddr
+    return zonename
+
 def syscall(cmd):
     """  Run system commands """
 

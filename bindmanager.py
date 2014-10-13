@@ -116,6 +116,20 @@ def addrecord(args):
                                 is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", content)
                                 if is_valid:
                                     validation(zoneid, name, zone, type, content)
+                                    revzone = revzoneName(content)
+                                    ptr_zone = parse_named_file(named_file, revzone)
+                                    if ptr_zone:
+                                       pass
+                                    else:
+                                       logger.error("'%s' not present in '%s', please check.. and add it correctly to refer and do reload named service." % (revzone, named_file))
+                                       logger.info("""
+                                                      zone "%s" IN {
+                                                              type master;
+                                                              file "%s";
+                                                              allow-update { key "%s"; };
+                                                      };
+                                                  """ % (revzone, revzone, load_mycnf()["keyname"]))
+                                       sys.exit(1)
                                 else:
                                     raise
                             else:

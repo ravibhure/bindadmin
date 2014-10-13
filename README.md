@@ -2,25 +2,25 @@
 
 #### bindadmin is demand to manage bind zones, which can be stored in mysql database and called to build zone file when required, at the same time it should be able to add/update/delete and record type and maintain the logging activity.
 
-          1)    We provide
+          1)	We provide
             Type=A,CNAME
             Zonefile=example,com
             Domain=www
             IP/Alias/value=value
 
-          2)    Write to DB
-          3)    Fetch the all data sets for the zonefile
-          4)    Generate the zone file using jinja template
-          5)    Sanity checks and Verify zone
-          6)    rndc reloads dynamic
-          7)    git commit and push
-          8)    rndc freeze (not to update)
+          2)	Write to DB
+          3)	Fetch the all data sets for the zonefile
+          4)	Generate the zone file using jinja template
+          5)	Sanity checks and Verify zone
+          6)	rndc reloads dynamic
+          7)	git commit and push
+          8)	rndc freeze (not to update)
 
 ### Installation
 
 #### Setup database
 
-      mysqladmin create glamdns
+      mysqladmin create dnsdb
       mysql -Bse "create user 'dnsdb'@'localhost' identified by 'password'"
       mysql -Bse "grant all privileges on dnsdb.* to 'dnsdb'@'localhost'"
 
@@ -83,15 +83,15 @@
         -z ZONE, --zone ZONE  Set the zone to be updated
 
 
-### TODO
+### TODO:
 
-      If adding 'A' record type for any already exists 'name', check if there is already any entry for 'name' with any other 'A' record, if found
+      * Done - If adding 'A' record type for any already exists 'name', check if there is already any entry for 'name' with any other 'A' record, if found
       print "WARNING: '%s' record for '%s', already found with different content value!" % (type, name, content)
 
       If adding 'CNAME' record, validate the CNAME 'content' record is present with 'A' record, if not exit with message.
-      print "ERROR: '%s' record for '%s', doesn't have any 'A' record value!" % (type, name)
+      print "WARNING: '%s' record for '%s', doesn't have any 'A' record value!" % (type, name)
 
-      Validate given 'name', which can be accepted with FQDN (with zone) or simple HOSTNAME
+      * Done -  Validate given 'name', which can be accepted with FQDN (with zone) or simple HOSTNAME
       (we need to add .zone.com after hostname if not found)
 
       If deleting 'A' record, check and remove if there are any 'CNAME' records with that 'A' records.
@@ -112,3 +112,7 @@
       Search wildcard or nearest match while showing search result.
 
       Replace 'insert' with 'update' sql statement in zone2sql
+
+      Add zone with base template
+
+      Adding record type 'A' also adds the reverse PTR for ..
