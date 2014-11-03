@@ -26,11 +26,11 @@
 
 ### Usages
 
-      [root@ggvaapp07vm2 bindadmin]# ./bindmanager.py
+      [root@host75 bindadmin]# ./bindmanager.py
       usage: bindmanager.py [-h] {add,delete,show} ...
       bindmanager.py: error: too few arguments
 
-      [root@ggvaapp07 bindadmin]# ./bindmanager.py -h
+      [root@host75 bindadmin]# ./bindmanager.py -h
       usage: bindmanager.py [-h] {add,delete,show} ...
 
       Queries the zone database for Build information
@@ -46,7 +46,7 @@
 
       To know more, write to: ravibhure@gmail.com
 
-      [root@ggvaapp07 bindadmin]# ./bindmanager.py show -h
+      [root@host75 bindadmin]# ./bindmanager.py show -h
       usage: bindmanager.py show [-h] -z ZONE [-n NAME] [-c CONTENT] [-l]
 
       optional arguments:
@@ -58,7 +58,7 @@
         -l, --list            List all record values for specified zone
 
 
-      [root@ggvaapp07 bindadmin]# ./bindmanager.py add -h
+      [root@host75 bindadmin]# ./bindmanager.py add -h
       usage: bindmanager.py add [-h] -n NAME -t TYPE -c CONTENT [-tl TTL] -z ZONE
 
       optional arguments:
@@ -71,7 +71,7 @@
         -z ZONE, --zone ZONE  Set the zone to be updated
 
 
-      [root@ggvaapp07 bindadmin]# ./bindmanager.py delete -h
+      [root@host75 bindadmin]# ./bindmanager.py delete -h
       usage: bindmanager.py delete [-h] -n NAME -t TYPE [-c CONTENT] -z ZONE
 
       optional arguments:
