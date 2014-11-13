@@ -100,6 +100,25 @@ def addrecord(args):
     # Parse hostname
     name = find_hostname(zone, name)
 
+    # Refer valid zone from named.conf
+    v_zone = parse_named_file(named_file, zone)
+    if v_zone:
+       pass
+    else:
+       logger.error("Error: '%s' is not present in '%s', please check.." % (zone, named_file))
+       sys.exit(1)
+
+    if args.ttl:
+	ttl = args.ttl
+	try:
+	   ttl = int(ttl)
+	except ValueError:
+	   logger.error("ttl '%s' is not an int!" % ttl)
+	   sys.exit(1)
+    else:
+	ttl = '86400'
+	logger.info("TTL is not provided, using default value '86400' seconds ie. 24 hours!")
+
     # Validation
     gitInit(zonepath)
 
@@ -115,7 +134,7 @@ def addrecord(args):
                             if content:
                                 is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", content)
                                 if is_valid:
-                                    validation(zoneid, name, zone, type, content)
+				    validation(zoneid, name, zone, type, content)
                                     revzone = revzoneName(content)
                                     ptr_zone = parse_named_file(named_file, revzone)
                                     if ptr_zone:
@@ -129,7 +148,7 @@ def addrecord(args):
                                                               allow-update { key "%s"; };
                                                       };
                                                   """ % (revzone, revzone, load_mycnf()["keyname"]))
-                                       sys.exit(1)
+                                       sys.exit()
                                 else:
                                     raise
                             else:
@@ -150,8 +169,18 @@ def addrecord(args):
                         except Exception, ex:
                             logger.error("'%s' is not a valid hostname" % content)
                             sys.exit(1)
+                      elif type == 'TXT':
+                        try:
+                            if len(content) > 255:
+                                raise
+			    else:
+                                validation(zoneid, name, zone, type, content)
+				pass
+                        except Exception, ex:
+                            logger.error("Error! Only 255 characters allowed!, provide TXT content under 255 char")
+                            sys.exit(1)
                       else:
-                        validation(zoneid, name, type, content)
+                        validation(zoneid, name, zone, type, content)
                         pass
                   else:
                       raise
@@ -163,6 +192,7 @@ def addrecord(args):
         elif content:
             is_valid = re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", ip)
             if is_valid:
+		validation(zoneid, name, zone, type, content)
                 pass
             else:
                 raise
@@ -170,10 +200,7 @@ def addrecord(args):
         logger.error("'%s', probabily it is not valid hostname/ip" % name)
         sys.exit(1)
 
-    if args.ttl:
-	ttl = args.ttl
-    else:
-	ttl = '86400'
+    logger.info("Sanity check went good for '%s'" % zone)
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
     revertzone(zone)
@@ -182,16 +209,29 @@ def addrecord(args):
     action = 'add'
     data = "%s.%s. %s %s %s" % (name, zone, ttl, type, content)
     nsfile(action, zone, data)
+    if type == 'A':
+      revname = revName(content)
+      data = "%s %s %s %s" % (revname, ttl, 'PTR', name)
+      nsfile(action, revzone, data, nfile=ptrtemplate)
 
     dnsupdate(zone)
+    if type == 'A':
+      dnsupdate(revzone, nfile=ptrtemplate)
     if check_zone(zonepath, zone):
-        logger.info("Sanity check went good for '%s'" % zone)
-        reloadzone(zone)
+        logger.info("Validity check went good for '%s'" % zone)
+	if type == 'A':
+          reloadzone(zone)
+	  #### Delay for 1 seconds ####
+	  time.sleep(2)
+	  reloadzone(revzone)
+	else:
+          reloadzone(zone)
         archivezone(zone)
         logger.info("Successfully added record '%s'" % name)
         return True
     else:
         revertzone(zone)
+	# "Task pending to remove entry from db"
         reloadzone(zone)
         raise
         logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
@@ -204,6 +244,13 @@ def deleterecord(args):
     type = args.type.upper()
     zoneid = zonedetails(zone)
 
+    # Refer valid zone from named.conf
+    v_zone = parse_named_file(named_file, zone)
+    if v_zone:
+       pass
+    else:
+       logger.error("Error: '%s' is not present in '%s', please check.." % (zone, named_file))
+       sys.exit(1)
     # Parse hostname
     name = find_hostname(zone, name)
 
@@ -235,6 +282,8 @@ def deleterecord(args):
     nsfile(action, zone, data)
 
     dnsupdate(zone)
+    if type == 'A':
+        logger.warning("Please check and remove associate PTR for this if unused..")
     if check_zone(zonepath, zone):
         logger.info("Sanity check went good for '%s'" % zone)
         reloadzone(zone)
@@ -257,7 +306,7 @@ def main():
     subparsers = parser.add_subparsers()
 
     # toggle show record
-    parser_show = subparsers.add_parser('show',help="show's your defined search from given zone")
+    parser_show = subparsers.add_parser('show',help="Show's your defined search from given zone")
     parser_show.add_argument("-z", "--zone", help="Set the zone to be check",required=True)
     parser_show.add_argument("-n", "--name", help="The record name to be check",required=False)
     parser_show.add_argument("-c", "--content", help="The record value or ip address to be check",required=False)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import re,argparse,sys,os,time,ConfigParser,subprocess
-import tempfile
 from prettytable import PrettyTable
-file = tempfile.NamedTemporaryFile(delete=False)
-nstemplate = file.name
+timestr = time.strftime("%Y%m%d-%H%M%S")
+nstemplate = '/tmp/ns_' + timestr
+ptrtemplate = '/tmp/ptr_' + timestr
 try:
     import MySQLdb
 except ImportError:
@@ -255,16 +255,20 @@ def parse_named_file(named_file, zone):
             file "colo.zonefile";
             notify yes;
             allow-transfer { "my_networks"; };
+	    allow-update { key "rndc-key"; };
 
     };
     """
     try:
         f = open(named_file, "r").read()
-        pat = re.compile('zone\s+[\'"]?(\S+?)[\'"]?\s*IN?\s*{.*?type\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?file\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?;', re.DOTALL | re.MULTILINE)
+        if re.match("^[0-9]+.*", zone):
+             pat = re.compile('zone\s+[\'"]?(\S+?)[\'"]?\s*?\s*{.*?type\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?file\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?;', re.DOTALL | re.MULTILINE)
+        else:
+             pat = re.compile('zone\s+[\'"]?(\S+?)[\'"]?\s*IN?\s*{.*?type\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?file\s+[\'"]?([^\'";]+?)[\'"]?\s*;.*?;', re.DOTALL | re.MULTILINE)
         for z in pat.finditer(f):
             z = list(z.groups())
             if z[0] == zone and z[1] == 'slave':
-                print "Gotcha.. '%s' zone found, but sorry we can't supports slave now." % zone
+                logger.error("Gotcha.. '%s' zone found as slave, sorry we can't supports slave now." % zone)
                 sys.exit(1)
             # type should be 'master' or 'native'
             elif z[0] == zone:
@@ -354,8 +358,8 @@ def revertzone(zone):
 
     try:
         if gitReset(zonepath):
-           gitClean(zonepath)
-           gitPull(zonepath)
+           #gitClean(zonepath)
+           #gitPull(zonepath)
            logger.info("Successfully reverted '%s' zone from git" % zone)
     except Exception, ex:
         logger.error("While reverted '%s' zone from git" % zone)
@@ -364,7 +368,6 @@ def revertzone(zone):
 def reloadzone(zone):
     """ Reload your Zone """
     cmd = "%s freeze %s >/dev/null 2>&1 && %s reload %s >/dev/null 2>&1 && %s thaw %s >/dev/null 2>&1" % (rndc, zone, rndc, zone, rndc, zone)
-
     try:
         if syscall(cmd):
            logger.info("Successfully reloaded '%s' zone" % zone)
@@ -432,27 +435,26 @@ def check_zone(zonepath, zone):
     else:
        return False
 
-def nsfile(action, zone, data):
+def nsfile(action, zone, data, nfile=nstemplate):
     """
     Write record details to add to zone.
     """
     try:
+      with open(nfile, 'w') as file:
         file.write(b"server %s\n" % dnsmaster)
-        #file.write("debug yes\n")
         file.write(b"zone %s.\n" % zone)
         if action == 'add':
            file.write(b"update add %s\n" % data)
         if action == 'delete':
            file.write(b"update delete %s\n" % data)
-        #file.write("show\n")
         file.write(b"send\n")
         file.close()
         return 0
     except Exception, ex:
-        logger.error("While write data to nsupdate template '%s' file" % nstemplate)
+        logger.error("While write data to nsupdate template '%s' file" % nfile)
         sys.exit(1)
 
-def dnsupdate(zone):
+def dnsupdate(zone, nfile=nstemplate):
     """ NSupdate your Zone """
 
     # Get the NS secure keys
@@ -461,12 +463,12 @@ def dnsupdate(zone):
     key = myns_keys["key"]
     rndckey = keyname + ':' + key
 
-    cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nstemplate)
+    cmd = "%s -y '%s' -v %s > /dev/null 2>&1" % (nsupdate, rndckey, nfile)
 
     try:
         if syscall(cmd):
            logger.info("Successfully updated '%s' zone" % zone)
-	   os.remove(nstemplate)   # delete the tempfile
+	   os.remove(nfile)   # delete the tempfile
         else:
            raise
     except Exception, ex:
