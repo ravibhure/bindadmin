@@ -200,7 +200,7 @@ def addrecord(args):
         logger.error("'%s', probabily it is not valid hostname/ip" % name)
         sys.exit(1)
 
-    logger.info("Sanity check went good for '%s'" % zone)
+    logger.info("Sanity check went good for '%s' and given args input" % zone)
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
     revertzone(zone)
@@ -274,6 +274,7 @@ def deleterecord(args):
     else:
         sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
 
+    logger.info("Sanity check went good for '%s' and given args input" % zone)
     revertzone(zone)
     result = execute(sql)
     logger.info("Successfully removed record '%s' from db." % name)
@@ -285,7 +286,7 @@ def deleterecord(args):
     if type == 'A':
         logger.warning("Please check and remove associate PTR for this if unused..")
     if check_zone(zonepath, zone):
-        logger.info("Sanity check went good for '%s'" % zone)
+        logger.info("Validity check went good for '%s'" % zone)
         reloadzone(zone)
         archivezone(zone)
         logger.info("Successfully removed record '%s'" % name)
