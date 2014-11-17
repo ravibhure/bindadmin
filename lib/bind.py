@@ -22,6 +22,8 @@ dnsmaster = 'localhost'
 archive_dir = '/var/tmp/zonemanage_archive/'
 authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
+pid = str(os.getpid())
+pidfile = "/var/run/bindadmin.pid"
 LOGFILE='/var/log/bindadmin.log'
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
 
@@ -238,6 +240,22 @@ def parse_key_file(key_file, key_name):
     except Exception, e:
         sys.stderr.write("Can't parse a keyfile %s: %s\n" % (key_file, e))
         sys.exit(1)
+
+def lockme():
+   """
+   Drop a pidfile somewhere (e.g. /var/run). Then you can check to see if the process
+   is running by checking to see if the PID in the file exists.
+   Don't forget to delete the file when you shut down cleanly, and check for it when you start up.
+   """
+   if os.path.isfile(pidfile):
+      logger.error("%s already exists, exiting" % pidfile)
+      sys.exit()
+   else:
+      file(pidfile, 'w').write(pid)
+
+def release_lock():
+   " release lockfile once you done your work "
+   os.unlink(pidfile)
 
 def fixup_key_algo(key_algo):
     if key_algo == "hmac-md5":

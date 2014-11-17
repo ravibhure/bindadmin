@@ -203,6 +203,8 @@ def addrecord(args):
     logger.info("Sanity check went good for '%s' and given args input" % zone)
     sql =  """ insert into records (domain_id, name,type,content,ttl,prio) select id, '%s.%s', '%s', '%s', '%s', 0 from domains where id='%s' """ % (name, zone, type, content, ttl, zoneid)
 
+    # Created lock to prevent rerun multples
+    lockme()
     revertzone(zone)
     result = execute(sql)
     logger.info("Successfully added record '%s in db." % name)
@@ -228,6 +230,8 @@ def addrecord(args):
           reloadzone(zone)
         archivezone(zone)
         logger.info("Successfully added record '%s'" % name)
+	# Release lock once all went good
+	release_lock()
         return True
     else:
         revertzone(zone)
@@ -274,6 +278,7 @@ def deleterecord(args):
     else:
         sql = """ delete from records where domain_id='%s' and name='%s.%s' """ % (zoneid, name, zone)
 
+    lockme()
     logger.info("Sanity check went good for '%s' and given args input" % zone)
     revertzone(zone)
     result = execute(sql)
@@ -290,6 +295,8 @@ def deleterecord(args):
         reloadzone(zone)
         archivezone(zone)
         logger.info("Successfully removed record '%s'" % name)
+        # Release lock once all went good
+        release_lock()
         return True
     else:
         revertzone(zone)
