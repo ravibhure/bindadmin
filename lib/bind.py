@@ -1,16 +1,33 @@
 #!/usr/bin/env python
 
 import re,argparse,sys,os,time,ConfigParser,subprocess
-from prettytable import PrettyTable
 timestr = time.strftime("%Y%m%d-%H%M%S")
 nstemplate = '/tmp/ns_' + timestr
 ptrtemplate = '/tmp/ptr_' + timestr
+try:
+    from prettytable import PrettyTable
+except ImportError:
+    sys.exit("The python prettytable module is required")
+
+try:
+    import logging
+except ImportError:
+    sys.exit("The python logging module is required")
+
 try:
     import MySQLdb
 except ImportError:
     sys.exit("The python MySQLdb module is required")
 
-import logging
+try:
+    import getpass
+except ImportError:
+    sys.exit("The python getpass module is required")
+
+try:
+    from xmlrpclib import Server
+except ImportError:
+    sys.exit("The python xmlrpclib module is required")
 
 named_file = '/etc/named.conf'
 
@@ -24,6 +41,7 @@ authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
 pid = str(os.getpid())
 pidfile = "/var/run/bindadmin.pid"
+serverurl="http://mydesk.atlassian.net/rpc/xmlrpc"
 LOGFILE='/var/log/bindadmin.log'
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
 
@@ -571,6 +589,71 @@ def validation(zoneid, name, zone, type, content):
         return 0
     else:
         return 0
+
+# ++ =================================================================================== ++
+# Jira validation for BindAdmin
+# ++ =================================================================================== ++
+
+def jira_login():
+    """
+    Use getpass to hide your password echoing
+    """
+    juser = raw_input("Username [%s]: " % getpass.getuser())
+    if not juser:
+       juser = getpass.getuser()
+
+    jpw = getpass.getpass()
+    return juser, jpw
+
+def val_status(state):
+    """
+    Lots of jira issue status codes, need to look more at atlassian.net
+    """
+
+    j_status = { '1' : "Open",
+        '2' : "Won't Fix",
+        '3' : "In Progress",
+        '4' : "Reopened",
+        '5' : "Resolved",
+        '6' : "Closed",
+        '10000' : "Verified",
+        '10002' : "Stalled",
+        '10003' : "Killed",
+        '10005' : "Escalated",
+        '10013' : "Approved",
+        '10043' : "Done" }
+
+    for j_state, values in j_status.iteritems():
+        if j_state == state:
+           return values
+
+def get_issue_by_id(serverurl,j_user,j_passwd,issue_id):
+    """
+    Ref: https://developer.atlassian.com/display/JIRADEV/JIRA+XML-RPC+Overview
+    """
+
+    #Get a specific issue by ID
+    fields = {}
+    s = Server(serverurl)
+    auth = s.jira1.login(j_user, j_passwd)
+    issue = s.jira1.getIssue(auth,issue_id)
+
+    # List
+    fields = s.jira1.getIssue(auth, issue_id)
+    for field, values in fields.iteritems():
+	if field == 'assignee':
+	   a_name = values
+	   if a_name == j_user:
+	      pass
+
+	if field == 'status':
+	   st_values = values
+	   if st_values == '1' or st_values == '3':
+	      pass
+	   else:
+	      return 1
+    return a_name, st_values
+
 
 # ++ =================================================================================== ++
 # Git for BindAdmin

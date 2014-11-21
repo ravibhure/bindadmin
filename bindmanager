@@ -94,11 +94,26 @@ def addrecord(args):
     name = args.name.lower()
     type = args.type.upper()
     content = args.content
+    jissueid = args.jiraid
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
 
     # Parse hostname
     name = find_hostname(zone, name)
+    # Jira Login
+    jirauser, jirapw = jira_login()
+    # Jira Validation
+    try:
+       j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
+       if j_valid:
+	  if j_status:
+	     statuscode = val_status(j_status)
+             logger.info("Hello %s: You are authorized to run bindadmin, '%s' status is '%s' ... -:)" % (jirauser,jissueid,statuscode))
+       else:
+          raise
+    except Exception, e:
+       logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
+       sys.exit(1)
 
     # Refer valid zone from named.conf
     v_zone = parse_named_file(named_file, zone)
@@ -231,7 +246,7 @@ def addrecord(args):
         archivezone(zone)
         logger.info("Successfully added record '%s'" % name)
 	# Release lock once all went good
-	release_lock()
+        release_lock()
         return True
     else:
         revertzone(zone)
@@ -245,8 +260,26 @@ def deleterecord(args):
     """ Connects to the zone specified by the user and delete record to its fields. """
     name = args.name.lower()
     zone = args.zone.lower()
+    jissueid = args.jiraid
     type = args.type.upper()
     zoneid = zonedetails(zone)
+
+    # Parse hostname
+    name = find_hostname(zone, name)
+    # Jira Login
+    jirauser, jirapw = jira_login()
+    # Jira Validation
+    try:
+       j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
+       if j_valid:
+	  if j_status:
+	     statuscode = val_status(j_status)
+             logger.info("Hello %s: You are authorized to run bindadmin, '%s' status is '%s' ... -:)" % (jirauser,jissueid,statuscode))
+       else:
+	  raise
+    except Exception, e:
+       logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
+       sys.exit(1)
 
     # Refer valid zone from named.conf
     v_zone = parse_named_file(named_file, zone)
@@ -255,8 +288,6 @@ def deleterecord(args):
     else:
        logger.error("Error: '%s' is not present in '%s', please check.." % (zone, named_file))
        sys.exit(1)
-    # Parse hostname
-    name = find_hostname(zone, name)
 
     # Validation
     gitInit(zonepath)
@@ -328,6 +359,7 @@ def main():
     parser_add.add_argument("-c", "--content", help="The record value to add for record name",required=True)
     parser_add.add_argument("-tl", "--ttl", help="The record ttl to add for record name",required=False)
     parser_add.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
+    parser_add.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
     parser_add.set_defaults(func=addrecord)
 
     # toggle delte record
@@ -336,6 +368,7 @@ def main():
     parser_delete.add_argument("-t", "--type", help="The record type to delete for record name",required=True)
     parser_delete.add_argument("-c", "--content", help="The record value to add for record name",required=False)
     parser_delete.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
+    parser_delete.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
     parser_delete.set_defaults(func=deleterecord)
 
     args = parser.parse_args()

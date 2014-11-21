@@ -3,3 +3,5 @@ ConfigParser
 argparse
 prettytable
 colorlog
+getpass
+xmlrpclib
