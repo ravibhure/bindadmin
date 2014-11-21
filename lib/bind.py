@@ -598,11 +598,12 @@ def jira_login():
     """
     Use getpass to hide your password echoing
     """
+    print("Provide your Jira Login:")
     juser = raw_input("Username [%s]: " % getpass.getuser())
     if not juser:
        juser = getpass.getuser()
 
-    jpw = getpass.getpass()
+    jpw = getpass.getpass("Provide password for %s:" % juser)
     return juser, jpw
 
 def val_status(state):
