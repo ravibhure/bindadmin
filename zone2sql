@@ -100,7 +100,23 @@ def getAXFR(cmd):
 def importZone(args):
     """ Import or dump zone information to SQL """
 
+    jissueid = args.jiraid
     zone = args.zone.lower()
+
+    # Jira Login
+    jirauser, jirapw = jira_login()
+    # Jira Validation
+    try:
+       j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
+       if j_valid:
+          if j_status:
+             statuscode = val_status(j_status)
+             logger.info("Hello %s: You are authorized to run bindadmin, '%s' status is '%s' ... -:)" % (jirauser,jissueid,statuscode))
+       else:
+          raise
+    except Exception, e:
+       logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
+       sys.exit(1)
 
     v_zone = parse_named_file(named_file, zone)
     if v_zone:
@@ -145,10 +161,26 @@ def exportZone(args):
 
     buffer = ""
 
+    jissueid = args.jiraid
     zone = args.zone.lower()
     zoneid = zonedetails(zone)
 
     myfile = '%s' % zone
+
+    # Jira Login
+    jirauser, jirapw = jira_login()
+    # Jira Validation
+    try:
+       j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
+       if j_valid:
+          if j_status:
+             statuscode = val_status(j_status)
+             logger.info("Hello %s: You are authorized to run bindadmin, '%s' status is '%s' ... -:)" % (jirauser,jissueid,statuscode))
+       else:
+          raise
+    except Exception, e:
+       logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
+       sys.exit(1)
 
     # Querying soa records
     try:
@@ -295,14 +327,16 @@ def main():
     parser = argparse.ArgumentParser(description="Queries the zone data for just to import(dump)/export(restore) facility, we assume SQL is our central storage", epilog="To know more, write to: %s" % authoremail)
     subparsers = parser.add_subparsers()
 
-    # toggle show record
+    # zone to sql
     parser_import = subparsers.add_parser('import',help="Import or dump zone information to SQL")
     parser_import.add_argument("-z", "--zone", help="Set the zone to be dump",required=True)
+    parser_import.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
     parser_import.set_defaults(func=importZone)
 
-    # toggle add record
+    # sql to zone file
     parser_export  = subparsers.add_parser('export', help="Export zone information from SQL or git")
     parser_export.add_argument("-z", "--zone", help="Set the zone to be restore",required=True)
+    parser_export.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
     parser_export.add_argument("-l", "--live", action='store_true', help="Restore from DB and Put in live env to specified zone",required=False)
     parser_export.set_defaults(func=exportZone)
 
