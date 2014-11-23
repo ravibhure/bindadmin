@@ -41,7 +41,7 @@ authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
 pid = str(os.getpid())
 pidfile = "/var/run/bindadmin.pid"
-serverurl="http://mydesk.atlassian.net/rpc/xmlrpc"
+serverurl="http://mydesk.atlassian.net/"
 LOGFILE='/var/log/bindadmin.log'
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
 
@@ -598,7 +598,7 @@ def jira_login():
     """
     Use getpass to hide your password echoing
     """
-    print("Provide your Jira Login:")
+    print("Please provide your Jira Login details for '%s':" % serverurl)
     juser = raw_input("Username [%s]: " % getpass.getuser())
     if not juser:
        juser = getpass.getuser()
@@ -632,7 +632,7 @@ def get_issue_by_id(serverurl,j_user,j_passwd,issue_id):
     """
     Ref: https://developer.atlassian.com/display/JIRADEV/JIRA+XML-RPC+Overview
     """
-
+    serverurl = serverurl + '/rpc/xmlrpc'
     #Get a specific issue by ID
     fields = {}
     s = Server(serverurl)
