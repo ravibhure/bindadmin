@@ -75,16 +75,20 @@ def show(args):
 	    if is_valid:
 		search = name.lower()
 		search = find_hostname(zone, search)
-                sql = """ select * from records where domain_id='%s' and name='%s.%s' """ % (zoneid, search, zone)
+		sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
 	    else:
 		raise
         elif content:
 	    search = content
-            sql = """ select * from records where domain_id='%s' and content='%s' """ % (zoneid, search)
+	    sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, search + '%')
 	elif list:
             sql = """ select * from records where domain_id='%s' """ % (zoneid)
     except Exception, ex:
-        logger.error("While searching given value, probabily it is not valid '%s', '%s'" % (name, content))
+        if name:
+           search = name
+        else:
+           search = content
+        logger.error("While searching given value, probabily '%s' is not valid a search " % search)
         sys.exit(1)
 
     print check(sql)
