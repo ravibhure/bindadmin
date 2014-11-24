@@ -48,8 +48,9 @@ def show(args):
     Raise an exception if no suitable record is found.
     """
 
-    zone = args.zone.lower()
-    zoneid = zonedetails(zone)
+    if args.zone:
+       zone = args.zone.lower()
+       zoneid = zonedetails(zone)
     content = args.content
     name = args.name
     list = args.list
@@ -63,26 +64,36 @@ def show(args):
         else:
            raise
     except Exception, ex:
-	logger.error("At least one from 'name' or 'content' required while looking for any object.")
-	logger.info("Usages: %s show -h" % myname)
-	sys.exit(1)
+        logger.error("At least one from 'name' or 'content' required while looking for any object.")
+        logger.info("Usages: %s show -h" % myname)
+        sys.exit(1)
 
     # Parse hostname
 
     try:
         if name:
 	    is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", name)
-	    if is_valid:
-		search = name.lower()
-		search = find_hostname(zone, search)
-		sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
-	    else:
-		raise
+            if is_valid:
+                search = name.lower()
+                if args.zone:
+                   search = find_hostname(zone, search)
+                   sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
+                else:
+                   sql = """ select * from records where domain_id like '%s' and name like '%s' """ % ('%', '%' + search + '%')
+            else:
+                raise
         elif content:
-	    search = content
-	    sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, search + '%')
-	elif list:
-            sql = """ select * from records where domain_id='%s' """ % (zoneid)
+            search = content
+            if args.zone:
+               sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, search + '%')
+            else:
+               sql = """ select * from records where domain_id like '%s' and content like '%s' """ % ('%', search + '%')
+        elif list:
+            if args.zone:
+               sql = """ select * from records where domain_id='%s' """ % (zoneid)
+            else:
+               logger.error("domain name not provided, please see the help using '-h'")
+               sys.exit(1)
     except Exception, ex:
         if name:
            search = name
