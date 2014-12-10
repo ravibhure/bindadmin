@@ -116,3 +116,5 @@
       Add zone with base template
 
       Adding record type 'A' also adds the reverse PTR for ..
+
+[![tip for next commit](http://prime4commit.com/projects/180.svg)](http://prime4commit.com/projects/180)

@@ -150,7 +150,7 @@ def importZone(args):
 
     Example:
 
-    mysql> use glamdns;
+    mysql> use dnsdb;
     mysql> \. sql/%s.sql;
 
     """ % (zone, zone)
