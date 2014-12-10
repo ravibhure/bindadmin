@@ -106,6 +106,10 @@ def importZone(args):
     # Jira Login
     jirauser, jirapw = jira_login()
     # Jira Validation
+
+    # User confirm
+    user_input(jirauser, 'Do you want to step through managed zone into database')
+
     try:
        j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
        if j_valid:
@@ -146,7 +150,7 @@ def importZone(args):
 
     Example:
 
-    mysql> use dnsdb;
+    mysql> use glamdns;
     mysql> \. sql/%s.sql;
 
     """ % (zone, zone)
@@ -170,6 +174,10 @@ def exportZone(args):
     # Jira Login
     jirauser, jirapw = jira_login()
     # Jira Validation
+
+    # User confirm
+    user_input(jirauser, 'Do you want to step through managed zone into database')
+
     try:
        j_valid, j_status = get_issue_by_id(serverurl,jirauser,jirapw,jissueid)
        if j_valid:

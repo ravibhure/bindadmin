@@ -64,41 +64,41 @@ def show(args):
         else:
            raise
     except Exception, ex:
-        logger.error("At least one from 'name' or 'content' required while looking for any object.")
-        logger.info("Usages: %s show -h" % myname)
-        sys.exit(1)
+	logger.error("At least one from 'name' or 'content' required while looking for any object.")
+	logger.info("Usages: %s show -h" % myname)
+	sys.exit(1)
 
     # Parse hostname
 
     try:
         if name:
 	    is_valid = re.match("^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$", name)
-            if is_valid:
-                search = name.lower()
-                if args.zone:
-                   search = find_hostname(zone, search)
-                   sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
-                else:
-                   sql = """ select * from records where domain_id like '%s' and name like '%s' """ % ('%', '%' + search + '%')
-            else:
-                raise
+	    if is_valid:
+		search = name.lower()
+		if args.zone:
+		   search = find_hostname(zone, search)
+		   sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
+		else:
+		   sql = """ select * from records where domain_id like '%s' and name like '%s' """ % ('%', '%' + search + '%')
+	    else:
+		raise
         elif content:
-            search = content
-            if args.zone:
+	    search = content
+	    if args.zone:
                sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, search + '%')
-            else:
+	    else:
                sql = """ select * from records where domain_id like '%s' and content like '%s' """ % ('%', search + '%')
-        elif list:
-            if args.zone:
+	elif list:
+	    if args.zone:
                sql = """ select * from records where domain_id='%s' """ % (zoneid)
-            else:
-               logger.error("domain name not provided, please see the help using '-h'")
-               sys.exit(1)
+	    else:
+	       logger.error("domain name not provided, please see the help using '-h'")
+	       sys.exit(1)
     except Exception, ex:
-        if name:
-           search = name
-        else:
-           search = content
+	if name:
+	   search = name
+	else:
+	   search = content
         logger.error("While searching given value, probabily '%s' is not valid a search " % search)
         sys.exit(1)
 
@@ -130,6 +130,8 @@ def addrecord(args):
        logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
        sys.exit(1)
 
+    # User confirm
+    user_input(jirauser, 'Do you want to step through add records in the zone database')
     # Refer valid zone from named.conf
     v_zone = parse_named_file(named_file, zone)
     if v_zone:
@@ -296,6 +298,8 @@ def deleterecord(args):
        logger.error("Jira issue '%s' does not exist or you don't have permission to view it, please check jira and rerun again" % jissueid)
        sys.exit(1)
 
+    # User confirm
+    user_input(jirauser, 'Do you want to step through remove record(s) from the zone database')
     # Refer valid zone from named.conf
     v_zone = parse_named_file(named_file, zone)
     if v_zone:
@@ -361,7 +365,7 @@ def main():
 
     # toggle show record
     parser_show = subparsers.add_parser('show',help="Show's your defined search from given zone")
-    parser_show.add_argument("-z", "--zone", help="Set the zone to be check",required=True)
+    parser_show.add_argument("-z", "--zone", help="Set the zone to be check",required=False)
     parser_show.add_argument("-n", "--name", help="The record name to be check",required=False)
     parser_show.add_argument("-c", "--content", help="The record value or ip address to be check",required=False)
     parser_show.add_argument("-l", "--list", action='store_true', help="List all record values for specified zone",required=False)
@@ -372,7 +376,7 @@ def main():
     parser_add.add_argument("-n", "--name", help="The record name to add",required=True)
     parser_add.add_argument("-t", "--type", help="The record type to add for record name",required=True)
     parser_add.add_argument("-c", "--content", help="The record value to add for record name",required=True)
-    parser_add.add_argument("-tl", "--ttl", help="The record ttl to add for record name",required=False)
+    parser_add.add_argument("--ttl", help="The record ttl to add for record name",required=False)
     parser_add.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
     parser_add.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
     parser_add.set_defaults(func=addrecord)

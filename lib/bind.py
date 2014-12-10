@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 import re,argparse,sys,os,time,ConfigParser,subprocess
 timestr = time.strftime("%Y%m%d-%H%M%S")
 nstemplate = '/tmp/ns_' + timestr
@@ -41,9 +42,23 @@ authoremail = 'ravibhure@gmail.com'
 now = time.strftime("%Y%d%m%H%M%S")
 pid = str(os.getpid())
 pidfile = "/var/run/bindadmin.pid"
-serverurl="http://mydesk.atlassian.net/"
+serverurl="http://mydesk.atlassian.net"
 LOGFILE='/var/log/bindadmin.log'
 SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
+jirauser='False'
+
+def jira_login():
+    """
+    Use getpass to hide your password echoing
+    """
+    print("\x1b[31;1mPlease provide your Jira Login details for '%s':" % serverurl)
+    juser = raw_input("\x1b[31;1mUsername [%s]: " % getpass.getuser())
+    if not juser:
+       juser = getpass.getuser()
+
+    jpw = getpass.getpass("\x1b[31;1mProvide password for %s:" % juser)
+    jirauser = 'True'
+    return juser, jpw
 
 def getlogin():
     try:
@@ -52,9 +67,10 @@ def getlogin():
         user = pwd.getpwuid(os.geteuid())[0]
     return user
 
-def setup_logger():
+def setup_logger(user):
+
     LOG_LEVEL = logging.DEBUG
-    LOG_USER = {'user': getlogin()}
+    LOG_USER = {'user': user}
     LOG_PATH = LOGFILE
 
     logging.root.setLevel(LOG_LEVEL)
@@ -81,7 +97,13 @@ def setup_logger():
     logger = logging.LoggerAdapter(logger, LOG_USER)
     return logger
 
-logger =  setup_logger()
+# Jira Login
+if jirauser == 'True':
+    user = jirauser
+    logger =  setup_logger(user)
+else:
+    user = getlogin()
+    logger =  setup_logger(user)
 
 def load_config_file():
     ''' Load Config File order(first found is used): ENV, CWD, HOME, /etc/bindadmin '''
@@ -590,21 +612,22 @@ def validation(zoneid, name, zone, type, content):
     else:
         return 0
 
+def user_input(user, message):
+    """
+    It means, you are agree on terms ! ;)
+    """
+
+    anskey=raw_input("  \x1b[31;1m%s: %s ? [N,y]:" % (user, message))
+    if anskey in ['y','Y','yes','Yes','YES']:
+       logger.warning("%s: you typed '%s', which seems you know what you are doing ..." % (user, anskey))
+	     #return 0
+    else:
+       logger.error("%s: you typed '%s', which seems you do not want to continue ..." % (user, anskey))
+       sys.exit(1)
+
 # ++ =================================================================================== ++
 # Jira validation for BindAdmin
 # ++ =================================================================================== ++
-
-def jira_login():
-    """
-    Use getpass to hide your password echoing
-    """
-    print("Please provide your Jira Login details for '%s':" % serverurl)
-    juser = raw_input("Username [%s]: " % getpass.getuser())
-    if not juser:
-       juser = getpass.getuser()
-
-    jpw = getpass.getpass("Provide password for %s:" % juser)
-    return juser, jpw
 
 def val_status(state):
     """
