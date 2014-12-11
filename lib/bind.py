@@ -392,11 +392,12 @@ def syscall(cmd):
         logger.error("Command failed with following error: ")
         sys.exit("Error: %s" % e)
 
-def archivezone(zone):
+def archivezone(zone, jirauser, jissueid):
     """ Backup your Zone with Git """
 
+    jirauser = jirauser.upper()
     gitInit(zonepath)
-    message="Updated %s with record" % zone
+    message="%s: updated %s with record - [%s]" % (jirauser, zone, jissueid)
 
     try:
         if gitAdd(zone, zonepath):

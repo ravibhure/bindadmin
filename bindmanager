@@ -260,7 +260,7 @@ def addrecord(args):
 	  reloadzone(revzone)
 	else:
           reloadzone(zone)
-        archivezone(zone)
+        archivezone(zone, jirauser, jissueid)
         logger.info("Successfully added record '%s'" % name)
 	# Release lock once all went good
         release_lock()
@@ -343,7 +343,7 @@ def deleterecord(args):
     if check_zone(zonepath, zone):
         logger.info("Validity check went good for '%s'" % zone)
         reloadzone(zone)
-        archivezone(zone)
+        archivezone(zone, jirauser, jissueid)
         logger.info("Successfully removed record '%s'" % name)
         # Release lock once all went good
         release_lock()
