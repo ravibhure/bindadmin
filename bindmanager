@@ -77,7 +77,7 @@ def show(args):
 		search = name.lower()
 		if args.zone:
 		   search = find_hostname(zone, search)
-		   sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, search + '%', zone)
+		   sql = """ select * from records where domain_id='%s' and name like '%s.%s' """ % (zoneid, '%' + search + '%', zone)
 		else:
 		   sql = """ select * from records where domain_id like '%s' and name like '%s' """ % ('%', '%' + search + '%')
 	    else:
@@ -85,9 +85,9 @@ def show(args):
         elif content:
 	    search = content
 	    if args.zone:
-               sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, search + '%')
+               sql = """ select * from records where domain_id='%s' and content like '%s' """ % (zoneid, '%' + search + '%')
 	    else:
-               sql = """ select * from records where domain_id like '%s' and content like '%s' """ % ('%', search + '%')
+               sql = """ select * from records where domain_id like '%s' and content like '%s' """ % ('%', '%' + search + '%')
 	elif list:
 	    if args.zone:
                sql = """ select * from records where domain_id='%s' """ % (zoneid)
