@@ -472,6 +472,39 @@ def check(sql):
         logger.error("This may be if you are trying to search incorrect 'object', which is not present into the zone db.")
         sys.exit(1)
 
+def chk_domain(sql):
+    """
+    Executes a mysql command by sending a query to a MySQL database server,
+    to fetch the given search content.
+    """
+
+    conn = dbconnection()
+    mysql = conn.cursor()
+
+    buffer = ""
+    try:
+        mysql.execute(sql)
+        result = ''
+        rows = ''
+        x = PrettyTable(["Zone Name", "SOA NameServer", "Admin mailbox"])
+        x.align["Zone Name"] = "l" # Left align city names
+        x.padding_width = 1 # One space between column edges and contents (default)
+        rows=mysql.fetchall()
+        mysql.close()
+        conn.close()
+        if rows:
+            for fields in rows:
+                name = fields[1]
+                soa_ns = fields[3]
+                admin_mailbox = fields[4]
+                x.add_row([name, soa_ns, admin_mailbox])
+            return x
+        else:
+            raise
+    except Exception, ex:
+        logger.error("This may be if you are trying to search incorrect 'object', which is not present into the zone db.")
+        sys.exit(1)
+
 def check_zone(zonepath, zone):
     """
     Check the syntax of a zonefile by calling the named-checkzone

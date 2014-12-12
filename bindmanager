@@ -92,8 +92,9 @@ def show(args):
 	    if args.zone:
                sql = """ select * from records where domain_id='%s' """ % (zoneid)
 	    else:
-	       logger.error("domain name not provided, please see the help using '-h'")
-	       sys.exit(1)
+	       sql = """ select * from domains """
+	       print chk_domain(sql)
+	       sys.exit(0)
     except Exception, ex:
 	if name:
 	   search = name
