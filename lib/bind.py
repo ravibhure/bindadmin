@@ -44,7 +44,7 @@ pid = str(os.getpid())
 pidfile = "/var/run/bindadmin.pid"
 serverurl="http://mydesk.atlassian.net"
 LOGFILE='/var/log/bindadmin.log'
-SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT', 'PTR')
+SUPPORTED_RECORD_TYPES = ('A', 'CNAME', 'MX', 'TXT')
 jirauser='False'
 
 def jira_login():
@@ -62,6 +62,7 @@ def jira_login():
 
 def getlogin():
     try:
+        #user,pw = jira_login()
         user = os.getlogin()
     except OSError, e:
         user = pwd.getpwuid(os.geteuid())[0]
@@ -98,6 +99,7 @@ def setup_logger(user):
     return logger
 
 # Jira Login
+#jirauser, jirapw = jira_login()
 if jirauser == 'True':
     user = jirauser
     logger =  setup_logger(user)
@@ -451,7 +453,7 @@ def check(sql):
         mysql.execute(sql)
         result = ''
         rows = ''
-        x = PrettyTable(["Record Name", "Record Type", "Result Value"])
+        x = PrettyTable(["Record Name", "Record Type", "Result Value", "TTL(sec)"])
         x.align["Record Name"] = "l" # Left align city names
         x.padding_width = 1 # One space between column edges and contents (default)
         rows=mysql.fetchall()
@@ -464,7 +466,7 @@ def check(sql):
                 type = fields[3]
                 content = fields[4]
                 ttl = fields[5]
-                x.add_row([name, type, content])
+                x.add_row([name, type, content, ttl])
             return x
         else:
             raise

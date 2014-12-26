@@ -59,7 +59,7 @@
 
 
       [root@ggvaapp07 bindadmin]# ./bindmanager add -h
-      usage: bindmanager add [-h] -n NAME -t TYPE -c CONTENT [-tl TTL] -z ZONE
+      usage: bindmanager add [-h] -n NAME -t TYPE -c CONTENT -z ZONE [-tl TTL]
 
       optional arguments:
         -h, --help            show this help message and exit
@@ -67,7 +67,7 @@
         -t TYPE, --type TYPE  The record type to add for record name
         -c CONTENT, --content CONTENT
                               The record value to add for record name
-        -tl TTL, --ttl TTL    The record ttl to add for record name
+        --ttl TTL    The record ttl to add for record name
         -z ZONE, --zone ZONE  Set the zone to be updated
 
 

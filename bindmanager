@@ -92,8 +92,8 @@ def show(args):
 	    if args.zone:
                sql = """ select * from records where domain_id='%s' """ % (zoneid)
 	    else:
-	       sql = """ select * from domains """
-	       print chk_domain(sql)
+               sql = """ select * from domains """
+               print chk_domain(sql)
 	       sys.exit(0)
     except Exception, ex:
 	if name:
@@ -173,7 +173,6 @@ def addrecord(args):
                                     if ptr_zone:
                                        pass
                                     else:
-                                       logger.error("'%s' not present in '%s', please check.. and add it correctly to refer and do reload named service." % (revzone, named_file))
                                        logger.info("""
                                                       zone "%s" IN {
                                                               type master;
@@ -181,6 +180,7 @@ def addrecord(args):
                                                               allow-update { key "%s"; };
                                                       };
                                                   """ % (revzone, revzone, load_mycnf()["keyname"]))
+                                       logger.error("'%s' not present in '%s', please check.. and add it correctly to refer and do reload named service." % (revzone, named_file))
                                        sys.exit()
                                 else:
                                     raise
@@ -268,8 +268,11 @@ def addrecord(args):
         return True
     else:
         revertzone(zone)
+        sql = """ delete from records where domain_id='%s' and name='%s.%s' and content='%s' and type='%s' """ % (zoneid, name, zone, content, type)
+        execute(sql)
 	# "Task pending to remove entry from db"
         reloadzone(zone)
+        release_lock()
         raise
         logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
         sys.exit(1)
@@ -352,6 +355,7 @@ def deleterecord(args):
     else:
         revertzone(zone)
         reloadzone(zone)
+        release_lock()
         raise
         logger.error("in '%s' zone file, please check, we have reverted to fixed it" % zone)
         sys.exit(1)
@@ -377,9 +381,9 @@ def main():
     parser_add.add_argument("-n", "--name", help="The record name to add",required=True)
     parser_add.add_argument("-t", "--type", help="The record type to add for record name",required=True)
     parser_add.add_argument("-c", "--content", help="The record value to add for record name",required=True)
-    parser_add.add_argument("--ttl", help="The record ttl to add for record name",required=False)
     parser_add.add_argument("-z", "--zone", help="Set the zone to be updated",required=True)
     parser_add.add_argument("-j", "--jiraid", help="Jira ID for auth and request tracking",required=True)
+    parser_add.add_argument("--ttl", help="The record ttl to add for record name",required=False)
     parser_add.set_defaults(func=addrecord)
 
     # toggle delte record
